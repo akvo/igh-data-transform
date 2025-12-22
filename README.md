@@ -57,3 +57,8 @@ The project uses UV for dependency management. Common commands:
 - **Update dependencies**: `uv sync`
 - **Run commands without activating venv**: `uv run <command>`
 - **Run Python scripts**: `uv run python <script.py>`
+
+### Data access
+
+The project currently uses local dataverse currently. In the long term this will be updated to a python library that 
+contains the data. For the time being the data can be accessed here: https://drive.google.com/file/d/1QMef9z_TlusQR1iYADFsKdL8UGgZVrrI/view?usp=drive_link
