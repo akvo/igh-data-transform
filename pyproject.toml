@@ -1,0 +1,15 @@
+[project]
+name = "igh-data-transform"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = []
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+igh-data-transform = "igh_data_transform:main"
+
+[build-system]
+requires = ["uv_build>=0.9.17,<0.10.0"]
+build-backend = "uv_build"
