@@ -8,5 +8,12 @@
       <jdbc-url>jdbc:sqlite:$PROJECT_DIR$/src/igh_data_transform/database/dataverse_complete_zuhdil.db</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
+    <data-source source="LOCAL" name="dataverse_complete.db" uuid="bb25f22f-306a-42f6-a234-c2fc23715b66">
+      <driver-ref>sqlite.xerial</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.sqlite.JDBC</jdbc-driver>
+      <jdbc-url>jdbc:sqlite:$PROJECT_DIR$/src/igh_data_transform/database/dataverse_complete.db</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
   </component>
 </project>
