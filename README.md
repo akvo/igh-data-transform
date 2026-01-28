@@ -113,3 +113,7 @@ The project uses UV for dependency management. Common commands:
 - **Run commands without activating venv**: `uv run <command>`
 - **Run tests**: `uv run pytest`
 - **Run linter**: `uv run ruff check src/ tests/`
+
+### Documentation
+
+- [Adding Transformations](docs/adding-transformations.md) - Guide for data analysts on how to add new data transformations
