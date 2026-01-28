@@ -30,11 +30,8 @@
 You can run the CLI tool without activating the virtual environment using `uv run`:
 
 ```bash
-# Run the CLI directly
-uv run igh-data-transform
-
-# Or run Python scripts directly
-uv run python -m igh_data_transform
+# Show available commands
+uv run igh-transform --help
 ```
 
 Alternatively, activate the virtual environment first:
@@ -45,7 +42,38 @@ source .venv/bin/activate  # On Linux/Mac
 .venv\Scripts\activate     # On Windows
 
 # Then run normally
-igh-data-transform
+igh-transform --help
+```
+
+### CLI Commands
+
+#### Bronze to Silver Transformation
+
+Transform raw Bronze layer data to cleaned Silver layer:
+
+```bash
+uv run igh-transform bronze-to-silver --bronze-db ./data/bronze.db --silver-db ./data/silver.db
+```
+
+This applies cleanup transformations:
+- Drops columns that are entirely null (preserves `valid_from`/`valid_to`)
+- Normalizes whitespace in text fields
+- Ready for table-specific column renames and value mappings
+
+#### Silver to Gold Transformation
+
+Transform Silver layer to pre-aggregated Gold layer (not yet implemented):
+
+```bash
+uv run igh-transform silver-to-gold --silver-db ./data/silver.db
+```
+
+#### Validate Data Quality
+
+Validate data quality in a database (not yet implemented):
+
+```bash
+uv run igh-transform validate --db ./data/silver.db
 ```
 
 ### Pulling Data from Dataverse
@@ -83,4 +111,5 @@ The project uses UV for dependency management. Common commands:
 - **Add a dev dependency**: `uv add --dev <package-name>`
 - **Update dependencies**: `uv sync`
 - **Run commands without activating venv**: `uv run <command>`
-- **Run Python scripts**: `uv run python <script.py>`
+- **Run tests**: `uv run pytest`
+- **Run linter**: `uv run ruff check src/ tests/`
