@@ -48,6 +48,33 @@ source .venv/bin/activate  # On Linux/Mac
 igh-data-transform
 ```
 
+### Pulling Data from Dataverse
+
+This project uses [igh-data-sync](https://github.com/akvo/igh-data-sync) to pull data from Microsoft Dataverse before applying transformations.
+
+**Setup:**
+
+1. **Configure environment variables** - Create a `.env` file with your Dataverse credentials:
+   ```bash
+   CLIENT_ID=your-azure-client-id
+   CLIENT_SECRET=your-azure-client-secret
+   SCOPE=https://your-org.crm.dynamics.com/.default
+   API_URL=https://your-org.api.crm.dynamics.com/api/data/v9.2/
+   SQLITE_DB_PATH=./data/dataverse.db
+   ```
+
+2. **Run the sync** - Pull data from Dataverse to local SQLite:
+   ```bash
+   uv run sync-dataverse
+   ```
+
+3. **Verify the data** (optional) - Check foreign key integrity:
+   ```bash
+   uv run sync-dataverse --verify
+   ```
+
+The synced data will be stored in a SQLite database with SCD2 (Slowly Changing Dimension Type 2) versioning for historical tracking.
+
 ### Development Workflow
 
 The project uses UV for dependency management. Common commands:
