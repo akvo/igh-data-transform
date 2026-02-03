@@ -1,0 +1,201 @@
+{
+  "summary": {
+    "total_tables_with_temporal": 1,
+    "total_temporal_columns": 35,
+    "total_temporal_groups": 23
+  },
+  "tables": {
+    "vin_candidates": {
+      "total_columns": 247,
+      "temporal_columns_count": 35,
+      "temporal_groups": {
+        "vin_candidateidnumber": [
+          {
+            "column": "vin_2019candidateidnumber",
+            "year": 2019
+          }
+        ],
+        "vin_stagepcr": [
+          {
+            "column": "vin_2019stagepcr",
+            "year": 2019
+          }
+        ],
+        "vin_developers": [
+          {
+            "column": "vin_2019developers",
+            "year": 2019
+          }
+        ],
+        "new_knownfunders": [
+          {
+            "column": "new_knownfunders2021",
+            "year": 2021
+          },
+          {
+            "column": "new_2024knownfunders",
+            "year": 2024
+          },
+          {
+            "column": "new_knownfunders2025",
+            "year": 2025
+          }
+        ],
+        "new_knownfundersaggregated": [
+          {
+            "column": "new_2023knownfundersaggregated",
+            "year": 2023
+          }
+        ],
+        "new_includeinevgendatabase": [
+          {
+            "column": "new_2023includeinevgendatabase",
+            "year": 2023
+          }
+        ],
+        "new_developers": [
+          {
+            "column": "new_developers2021",
+            "year": 2021
+          },
+          {
+            "column": "new_developers2025",
+            "year": 2025
+          }
+        ],
+        "new_includeinpipeline": [
+          {
+            "column": "new_includeinpipeline2021",
+            "year": 2021
+          },
+          {
+            "column": "new_2024includeinpipeline",
+            "year": 2024
+          },
+          {
+            "column": "new_includeinpipeline2025",
+            "year": 2025
+          },
+          {
+            "column": "new_includeinpipeline",
+            "year": 9999
+          }
+        ],
+        "new_rdstage": [
+          {
+            "column": "new_rdstage2021",
+            "year": 2021
+          },
+          {
+            "column": "new_rdstage2023",
+            "year": 2023
+          },
+          {
+            "column": "new_rdstage",
+            "year": 9999
+          }
+        ],
+        "vin_archetype": [
+          {
+            "column": "vin_2019archetype",
+            "year": 2019
+          }
+        ],
+        "new_includeinportal": [
+          {
+            "column": "new_includeinportal2025",
+            "year": 2025
+          }
+        ],
+        "vin_pcrpipelineinclusion": [
+          {
+            "column": "vin_2019pcrpipelineinclusion",
+            "year": 2019
+          }
+        ],
+        "vin_notes": [
+          {
+            "column": "vin_2019notes",
+            "year": 2019
+          }
+        ],
+        "new_developersaggregated": [
+          {
+            "column": "new_2023developersaggregated",
+            "year": 2023
+          },
+          {
+            "column": "new_2024developersaggregated",
+            "year": 2024
+          }
+        ],
+        "vin_disease": [
+          {
+            "column": "vin_2019disease",
+            "year": 2019
+          }
+        ],
+        "vin_ifyesdoesclinicaltrialevidencepredate": [
+          {
+            "column": "vin_ifyesdoesclinicaltrialevidencepredate2015",
+            "year": 2015
+          }
+        ],
+        "vin_product": [
+          {
+            "column": "vin_2019product",
+            "year": 2019
+          },
+          {
+            "column": "vin_product",
+            "year": 9999
+          }
+        ],
+        "new_currentrdstage": [
+          {
+            "column": "new_2023currentrdstage",
+            "year": 2023
+          },
+          {
+            "column": "new_2024currentrdstage",
+            "year": 2024
+          }
+        ],
+        "vin_candidatename": [
+          {
+            "column": "vin_2019candidatename",
+            "year": 2019
+          }
+        ],
+        "vin_complexitysecondpass": [
+          {
+            "column": "vin_2019complexitysecondpass",
+            "year": 2019
+          }
+        ],
+        "new_developmentstatus": [
+          {
+            "column": "new_2023developmentstatus",
+            "year": 2023
+          },
+          {
+            "column": "new_2024developmentstatus",
+            "year": 2024
+          }
+        ],
+        "vin_subdisease": [
+          {
+            "column": "vin_2019subdisease",
+            "year": 2019
+          }
+        ],
+        "vin_status": [
+          {
+            "column": "vin_2019status",
+            "year": 2019
+          }
+        ]
+      }
+    }
+  }
+}
