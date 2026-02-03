@@ -9,4 +9,16 @@ wheels/
 # Virtual environments
 .venv
 
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+
+# Environment
 .env
+.env.local
+
+# Claude code
+.claude/*.local.*
