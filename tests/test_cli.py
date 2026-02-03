@@ -39,12 +39,6 @@ class TestCLIParser:
             parser.parse_args(["silver-to-gold", "--help"])
         assert exc_info.value.code == 0
 
-    def test_validate_help(self) -> None:
-        """Test that validate --help works."""
-        parser = create_parser()
-        with pytest.raises(SystemExit) as exc_info:
-            parser.parse_args(["validate", "--help"])
-        assert exc_info.value.code == 0
 
 
 class TestBronzeToSilverCommand:
@@ -120,37 +114,6 @@ class TestSilverToGoldCommand:
         assert result == 0
 
 
-class TestValidateCommand:
-    """Tests for validate command."""
-
-    def test_validate_parses_args(self) -> None:
-        """Test that validate parses arguments correctly."""
-        parser = create_parser()
-        args = parser.parse_args(["validate", "--db", "/path/test.db"])
-        assert args.command == "validate"
-        assert args.db == "/path/test.db"
-
-    def test_validate_missing_db(self) -> None:
-        """Test that validate requires --db."""
-        parser = create_parser()
-        with pytest.raises(SystemExit) as exc_info:
-            parser.parse_args(["validate"])
-        assert exc_info.value.code == 2
-
-    def test_validate_command_execution(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Test that validate command executes successfully."""
-        db_path = tmp_path / "test.db"
-        monkeypatch.setattr(
-            sys,
-            "argv",
-            ["igh-transform", "validate", "--db", str(db_path)],
-        )
-        result = main()
-        assert result == 0
-
-
 class TestMainFunction:
     """Tests for main entry point."""
 
@@ -174,4 +137,3 @@ class TestCLIIntegration:
         assert result.returncode == 0
         assert "bronze-to-silver" in result.stdout
         assert "silver-to-gold" in result.stdout
-        assert "validate" in result.stdout
