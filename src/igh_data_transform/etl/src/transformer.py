@@ -26,6 +26,8 @@ class Transformer:
         self._dim_caches: dict[str, dict[Any, int]] = {}
         # Composite key caches for tech/regulatory dims
         self._composite_caches: dict[str, dict[tuple, int]] = {}
+        # Cross-reference maps for resolving FKs via candidate relationship
+        self._candidate_cross_refs: dict[str, dict[int, int | None]] = {}
 
     def _parse_optionset(self, expr: str, row: dict) -> str | None:
         """Parse OPTIONSET:column_name and look up label."""
@@ -38,7 +40,7 @@ class Transformer:
     def _evaluate_expression(self, expr: str, row: dict) -> Any:
         """Evaluate a source expression against a row."""
         # Handle None and specially-handled expressions
-        if expr is None or expr.startswith(("FK:", "LITERAL:")) or expr == "GENERATED":
+        if expr is None or expr.startswith(("FK:", "FK_VIA_CANDIDATE:", "LITERAL:")) or expr == "GENERATED":
             return None
 
         # Handle special expression types with dispatch
@@ -110,6 +112,10 @@ class Transformer:
         # Handle DISTINCT dimensions
         if special.get("distinct"):
             return self._transform_distinct_dimension(table_name, config)
+
+        # Handle dimensions built from optionset cache
+        if special.get("from_optionset"):
+            return self._transform_optionset_dimension(table_name, config, special)
 
         # Handle dimensions extracted from delimited fields
         if special.get("extract_distinct_from_delimited"):
@@ -209,6 +215,30 @@ class Transformer:
         logger.info(f"Transformed {len(transformed)} distinct values from delimited field for {table_name}")
         return transformed
 
+    def _transform_optionset_dimension(self, table_name: str, config: dict, special: dict) -> list[dict]:
+        """Transform dimension by reading directly from optionset cache."""
+        optionset_name = special["optionset_name"]
+        optionset_data = self.extractor._optionset_cache.get(optionset_name, {})
+
+        if not optionset_data:
+            logger.warning(f"No optionset data found for {optionset_name}")
+            return []
+
+        transformed = []
+        for code, label in sorted(optionset_data.items()):
+            new_row = {}
+            for target_col, source_expr in config.items():
+                if target_col.startswith("_"):
+                    continue
+                if source_expr == "OPTIONSET_LABEL":
+                    new_row[target_col] = label
+                elif source_expr == "OPTIONSET_CODE":
+                    new_row[target_col] = code
+            transformed.append(new_row)
+
+        logger.info(f"Transformed {len(transformed)} rows from optionset for {table_name}")
+        return transformed
+
     @staticmethod
     def _generate_date_dimension(special: dict) -> list[dict]:
         """Generate date dimension programmatically."""
@@ -247,7 +277,10 @@ class Transformer:
                 if source_expr is None:
                     continue
 
-                if source_expr.startswith("FK:"):
+                if source_expr.startswith("FK_VIA_CANDIDATE:"):
+                    # Resolve via candidate cross-reference
+                    new_row[target_col] = self._resolve_fk_via_candidate(source_expr, new_row)
+                elif source_expr.startswith("FK:"):
                     # Parse FK expression
                     new_row[target_col] = self._resolve_fk(source_expr, row, today)
                 else:
@@ -312,6 +345,26 @@ class Transformer:
     def _find_phase_id_by_name(phase_name: str) -> str | None:
         """Find phase ID by name (returns name for lookup)."""
         return phase_name
+
+    def build_candidate_cross_refs(self, pipeline_data: list[dict]) -> None:
+        """Build candidate_key → disease_key/product_key maps from loaded pipeline snapshots."""
+        for target_col in ("disease_key", "product_key"):
+            self._candidate_cross_refs[target_col] = {}
+            for row in pipeline_data:
+                ck = row.get("candidate_key")
+                val = row.get(target_col)
+                if ck is not None:
+                    self._candidate_cross_refs[target_col][ck] = val
+
+    def _resolve_fk_via_candidate(self, expr: str, new_row: dict) -> int | None:
+        """Resolve FK by looking up the candidate's disease_key or product_key."""
+        target_col = expr[len("FK_VIA_CANDIDATE:") :]  # e.g. "disease_key"
+        # candidate_key should already be resolved in new_row
+        candidate_key = new_row.get("candidate_key")
+        if candidate_key is None:
+            return None
+        cross_ref = self._candidate_cross_refs.get(target_col, {})
+        return cross_ref.get(candidate_key)
 
     def transform_bridge(self, table_name: str) -> list[dict]:
         """Transform a bridge table."""

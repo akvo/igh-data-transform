@@ -140,19 +140,44 @@ class Loader:
         cursor = self._get_cursor()
         issues: dict[str, list[str]] = {}
 
-        # Check fact_pipeline_snapshot FKs
         fk_checks = [
+            # fact_pipeline_snapshot
             ("fact_pipeline_snapshot", "candidate_key", "dim_candidate_core", "candidate_key"),
             ("fact_pipeline_snapshot", "product_key", "dim_product", "product_key"),
             ("fact_pipeline_snapshot", "disease_key", "dim_disease", "disease_key"),
+            ("fact_pipeline_snapshot", "secondary_disease_key", "dim_disease", "disease_key"),
+            ("fact_pipeline_snapshot", "sub_product_key", "dim_product", "product_key"),
             ("fact_pipeline_snapshot", "phase_key", "dim_phase", "phase_key"),
+            # fact_clinical_trial_event
             ("fact_clinical_trial_event", "candidate_key", "dim_candidate_core", "candidate_key"),
+            ("fact_clinical_trial_event", "disease_key", "dim_disease", "disease_key"),
+            ("fact_clinical_trial_event", "product_key", "dim_product", "product_key"),
+            # fact_publication
+            ("fact_publication", "candidate_key", "dim_candidate_core", "candidate_key"),
+            # bridge_candidate_geography
             ("bridge_candidate_geography", "candidate_key", "dim_candidate_core", "candidate_key"),
             ("bridge_candidate_geography", "country_key", "dim_geography", "country_key"),
+            # bridge_candidate_developer
             ("bridge_candidate_developer", "candidate_key", "dim_candidate_core", "candidate_key"),
             ("bridge_candidate_developer", "developer_key", "dim_developer", "developer_key"),
+            # bridge_candidate_priority
             ("bridge_candidate_priority", "candidate_key", "dim_candidate_core", "candidate_key"),
             ("bridge_candidate_priority", "priority_key", "dim_priority", "priority_key"),
+            # bridge_candidate_age_group
+            ("bridge_candidate_age_group", "candidate_key", "dim_candidate_core", "candidate_key"),
+            ("bridge_candidate_age_group", "age_group_key", "dim_age_group", "age_group_key"),
+            # bridge_candidate_approving_authority
+            ("bridge_candidate_approving_authority", "candidate_key", "dim_candidate_core", "candidate_key"),
+            ("bridge_candidate_approving_authority", "authority_key", "dim_approving_authority", "authority_key"),
+            # bridge_candidate_organization
+            ("bridge_candidate_organization", "candidate_key", "dim_candidate_core", "candidate_key"),
+            ("bridge_candidate_organization", "organization_key", "dim_organization", "organization_key"),
+            # bridge_candidate_funder
+            ("bridge_candidate_funder", "candidate_key", "dim_candidate_core", "candidate_key"),
+            ("bridge_candidate_funder", "funder_key", "dim_funder", "funder_key"),
+            # bridge_trial_geography
+            ("bridge_trial_geography", "trial_key", "fact_clinical_trial_event", "trial_id"),
+            ("bridge_trial_geography", "country_key", "dim_geography", "country_key"),
         ]
 
         for fk_check in fk_checks:

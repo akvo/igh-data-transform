@@ -56,7 +56,7 @@ def parse_case_when(expr: str, row: dict) -> Any:
     Returns:
         Result based on condition
     """
-    # Simple pattern: CASE WHEN col = val THEN result ELSE other END
+    # Pattern 1: Integer results - CASE WHEN col = val THEN 1 ELSE 0 END
     match = re.match(r"CASE\s+WHEN\s+(\w+)\s*=\s*(\d+)\s+THEN\s+(\d+)\s+ELSE\s+(\d+)\s+END", expr, re.IGNORECASE)
     if match:
         col_name, check_val, then_val, else_val = match.groups()
@@ -64,6 +64,17 @@ def parse_case_when(expr: str, row: dict) -> Any:
         if actual_val is not None and int(actual_val) == int(check_val):
             return int(then_val)
         return int(else_val)
+
+    # Pattern 2: String results - CASE WHEN col = val THEN 'str' ELSE 'str' END
+    match = re.match(
+        r"CASE\s+WHEN\s+(\w+)\s*=\s*(\d+)\s+THEN\s+'([^']+)'\s+ELSE\s+'([^']+)'\s+END", expr, re.IGNORECASE
+    )
+    if match:
+        col_name, check_val, then_val, else_val = match.groups()
+        actual_val = row.get(col_name)
+        if actual_val is not None and int(actual_val) == int(check_val):
+            return then_val
+        return else_val
 
     logger.warning(f"Could not parse CASE WHEN: {expr}")
     return None

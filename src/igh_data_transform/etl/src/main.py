@@ -30,6 +30,14 @@ DIMENSION_NATURAL_KEYS = {
     "dim_priority": "vin_rdpriorityid",
     "dim_date": "full_date",
     "dim_developer": "developer_name",  # Extracted from delimited vin_developersaggregated
+    "dim_age_group": "option_code",
+    "dim_approving_authority": "option_code",
+    "dim_funder": "funder_name",
+}
+
+# Fact tables that need their keys cached for bridge FK resolution
+FACT_NATURAL_KEYS = {
+    "fact_clinical_trial_event": "vin_clinicaltrialid",
 }
 
 
@@ -102,6 +110,16 @@ def _process_tables(transformer: Transformer, loader: Loader, logger: logging.Lo
         # Cache dimension keys for FK lookups
         if table_name.startswith("dim_"):
             _cache_dimension_keys(transformer, table_name, loaded_data, config)
+
+        # Cache fact keys needed by bridges (e.g. trial_id by vin_clinicaltrialid)
+        if table_name in FACT_NATURAL_KEYS:
+            pk_col = config.get("_pk")
+            lookup_col = FACT_NATURAL_KEYS[table_name]
+            transformer.cache_dimension_keys(table_name, loaded_data, pk_col, lookup_col)
+
+        # Build candidate cross-reference maps after pipeline snapshot is loaded
+        if table_name == "fact_pipeline_snapshot":
+            transformer.build_candidate_cross_refs(loaded_data)
 
 
 def run_etl(source_path: Path, output_path: Path) -> bool:

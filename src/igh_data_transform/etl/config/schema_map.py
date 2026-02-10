@@ -18,7 +18,9 @@ Source expressions can be:
     - CASE WHEN: "CASE WHEN statecode = 0 THEN 1 ELSE 0 END"
     - OPTIONSET:column_name: Resolve integer code to label via optionset lookup
     - FK:target_table.column: Foreign key lookup to get surrogate key
+    - FK_VIA_CANDIDATE:column: Cross-reference FK via candidate relationship
     - DELIMITED_VALUE: Placeholder for values extracted from delimited field
+    - OPTIONSET_LABEL / OPTIONSET_CODE: For dimensions built from optionset cache
 """
 
 STAR_SCHEMA_MAP = {
@@ -31,6 +33,8 @@ STAR_SCHEMA_MAP = {
         "vin_productid": "vin_productid",
         "product_name": "vin_name",
         "product_type": "vin_name",  # vin_name contains the product type (Vaccines, Drugs, Diagnostics, etc.)
+        "product_level": "CASE WHEN vin_type = 909670000 THEN 'top-level' ELSE 'sub-product' END",
+        "parent_product_id": "_vin_relatedproduct_value",
     },
     "dim_candidate_core": {
         "_source_table": "vin_candidates",
@@ -39,6 +43,15 @@ STAR_SCHEMA_MAP = {
         "candidate_name": "vin_name",
         "vin_candidate_code": "vin_candidateno",
         "developers_agg": "vin_developersaggregated",
+        "alternative_names": "vin_alternativenames",
+        "target": "vin_target",
+        "mechanism_of_action": "vin_mechanismofaction",
+        "key_features": "vin_keyfeatureschallenges",
+        "known_funders_agg": "vin_knownfundersaggregated",
+        "development_status": "OPTIONSET:vin_developmentstatus",
+        "current_rd_stage": "vin_currentrdstage",
+        "countries_approved_count": "vin_numberofcountrieswithproductapproval",
+        "countries_approved_agg": "vin_countrieswhereproductisapprovedaggregated",
     },
     "dim_disease": {
         "_source_table": "vin_diseases",
@@ -73,12 +86,19 @@ STAR_SCHEMA_MAP = {
         "_pk": "regulatory_key",
         "_special": {
             "distinct": True,
-            "distinct_cols": ["approval_status", "sra_approval_flag", "fda_approval_date", "who_prequal_date"],
+            "distinct_cols": [
+                "approval_status",
+                "sra_approval_flag",
+                "fda_approval_date",
+                "who_prequal_date",
+                "who_prequalification",
+            ],
         },
         "approval_status": "OPTIONSET:vin_approvalstatus",
         "sra_approval_flag": "OPTIONSET:vin_stringentregulatoryauthoritysraapproval",
         "fda_approval_date": "vin_usfdaapprovaldate",
         "who_prequal_date": "vin_whoprequalificationdate",
+        "who_prequalification": "OPTIONSET:vin_whoprequalification",
     },
     "dim_date": {
         "_source_table": None,  # Generated programmatically
@@ -121,6 +141,30 @@ STAR_SCHEMA_MAP = {
         },
         "developer_name": "DELIMITED_VALUE",  # Each parsed value becomes a row
     },
+    "dim_age_group": {
+        "_source_table": None,
+        "_pk": "age_group_key",
+        "_special": {"from_optionset": True, "optionset_name": "new_agespecific"},
+        "age_group_name": "OPTIONSET_LABEL",
+        "option_code": "OPTIONSET_CODE",
+    },
+    "dim_approving_authority": {
+        "_source_table": None,
+        "_pk": "authority_key",
+        "_special": {"from_optionset": True, "optionset_name": "vin_approvingauthority"},
+        "authority_name": "OPTIONSET_LABEL",
+        "option_code": "OPTIONSET_CODE",
+    },
+    "dim_funder": {
+        "_source_table": "vin_candidates",
+        "_pk": "funder_key",
+        "_special": {
+            "extract_distinct_from_delimited": True,
+            "source_column": "vin_knownfundersaggregated",
+            "delimiter": ";",
+        },
+        "funder_name": "DELIMITED_VALUE",
+    },
     # =========================================================================
     # FACT TABLES
     # =========================================================================
@@ -132,8 +176,10 @@ STAR_SCHEMA_MAP = {
         "candidate_key": "FK:dim_candidate_core.vin_candidateid|vin_candidateid",
         "product_key": "FK:dim_product.vin_productid|_vin_mainproduct_value",
         "disease_key": "FK:dim_disease.vin_diseaseid|_vin_disease_value",
+        "secondary_disease_key": "FK:dim_disease.vin_diseaseid|_vin_secondarydisease_value",
+        "sub_product_key": "FK:dim_product.vin_productid|_vin_subproduct_value",
         "technology_key": "FK:dim_candidate_tech.COMPOSITE|new_platform,vin_technologytype,vin_iggformatanimalderived,vin_routeofadministrationaggregated",
-        "regulatory_key": "FK:dim_candidate_regulatory.COMPOSITE|vin_approvalstatus,vin_stringentregulatoryauthoritysraapproval,vin_usfdaapprovaldate,vin_whoprequalificationdate",
+        "regulatory_key": "FK:dim_candidate_regulatory.COMPOSITE|vin_approvalstatus,vin_stringentregulatoryauthoritysraapproval,vin_usfdaapprovaldate,vin_whoprequalificationdate,vin_whoprequalification",
         "phase_key": "FK:dim_phase.phase_name|EXTRACT_PHASE:new_rdstage",  # Look up by phase_name after extracting from "Phase I - Drugs"
         "date_key": "FK:dim_date.full_date|EXTRACT_DATE:valid_from",  # Snapshot date from SCD2
         "is_active_flag": "CASE WHEN statecode = 0 THEN 1 ELSE 0 END",
@@ -142,12 +188,29 @@ STAR_SCHEMA_MAP = {
         "_source_table": "vin_clinicaltrials",
         "_pk": "trial_id",
         "_special": {"fk_lookups": True},
+        "vin_clinicaltrialid": "vin_clinicaltrialid",
         "candidate_key": "FK:dim_candidate_core.vin_candidateid|_vin_candidate_value",
-        "disease_key": None,  # Clinical trials don't have direct disease - inherit from candidate
+        "disease_key": "FK_VIA_CANDIDATE:disease_key",
+        "product_key": "FK_VIA_CANDIDATE:product_key",
         "start_date_key": "FK:dim_date.full_date|vin_startdate",
+        "trial_name": "vin_ctrialid",
+        "trial_title": "vin_title",
         "trial_phase": "vin_ctphase",
         "enrollment_count": "COALESCE(vin_ctenrolment, 0)",
         "status": "OPTIONSET:vin_ctstatus",
+        "sponsor": "new_sponsor",
+        "locations": "new_locations",
+        "age_groups": "new_age",
+        "study_type": "new_studytype",
+    },
+    "fact_publication": {
+        "_source_table": "vin_sources",
+        "_pk": "publication_id",
+        "_special": {"fk_lookups": True},
+        "candidate_key": "FK:dim_candidate_core.vin_candidateid|_vin_regardingid_value",
+        "title": "vin_name",
+        "url": "vin_url",
+        "description": "vin_description",
     },
     # =========================================================================
     # BRIDGE TABLES
@@ -203,6 +266,44 @@ STAR_SCHEMA_MAP = {
         "candidate_key": "FK:dim_candidate_core.vin_candidateid|vin_candidateid",
         "priority_key": "FK:dim_priority.vin_rdpriorityid|vin_rdpriorityid",
     },
+    "bridge_candidate_age_group": {
+        "_source_table": "_junction_vin_candidates_new_agespecific",
+        "_pk": None,
+        "candidate_key": "FK:dim_candidate_core.vin_candidateid|entity_id",
+        "age_group_key": "FK:dim_age_group.option_code|option_code",
+    },
+    "bridge_candidate_approving_authority": {
+        "_source_table": "_junction_vin_candidates_vin_approvingauthority",
+        "_pk": None,
+        "candidate_key": "FK:dim_candidate_core.vin_candidateid|entity_id",
+        "authority_key": "FK:dim_approving_authority.option_code|option_code",
+    },
+    "bridge_candidate_organization": {
+        "_source_table": "vin_vin_candidate_accountset",
+        "_pk": None,
+        "candidate_key": "FK:dim_candidate_core.vin_candidateid|vin_candidateid",
+        "organization_key": "FK:dim_organization.accountid|accountid",
+    },
+    "bridge_candidate_funder": {
+        "_source_table": "vin_candidates",
+        "_pk": None,
+        "_special": {
+            "bridge_from_delimited": True,
+            "source_column": "vin_knownfundersaggregated",
+            "delimiter": ";",
+            "dimension_table": "dim_funder",
+            "dimension_lookup_col": "funder_name",
+        },
+        "candidate_key": "FK:dim_candidate_core.vin_candidateid|vin_candidateid",
+        "funder_key": "FK:dim_funder.funder_name|DELIMITED_VALUE",
+    },
+    "bridge_trial_geography": {
+        "_source_table": "vin_vin_clinicaltrial_vin_countryset",
+        "_pk": None,
+        "_special": {"trial_bridge": True},
+        "trial_key": "FK:fact_clinical_trial_event.vin_clinicaltrialid|vin_clinicaltrialid",
+        "country_key": "FK:dim_geography.vin_countryid|vin_countryid",
+    },
 }
 
 # Table loading order (dimensions first, then facts, then bridges)
@@ -215,16 +316,25 @@ TABLE_LOAD_ORDER = [
     "dim_organization",
     "dim_priority",
     "dim_date",
+    "dim_age_group",
+    "dim_approving_authority",
     # Dimensions with special handling
     "dim_candidate_core",
     "dim_candidate_tech",
     "dim_candidate_regulatory",
     "dim_developer",  # Extracted from vin_candidates.vin_developersaggregated
+    "dim_funder",  # Extracted from vin_candidates.vin_knownfundersaggregated
     # Facts (depend on dimensions)
     "fact_pipeline_snapshot",
     "fact_clinical_trial_event",
-    # Bridges (depend on dimensions)
+    "fact_publication",
+    # Bridges (depend on dimensions and facts)
     "bridge_candidate_geography",
     "bridge_candidate_developer",
     "bridge_candidate_priority",
+    "bridge_candidate_age_group",
+    "bridge_candidate_approving_authority",
+    "bridge_candidate_organization",
+    "bridge_candidate_funder",
+    "bridge_trial_geography",
 ]

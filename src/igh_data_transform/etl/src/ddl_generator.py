@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 INTEGER_SUFFIXES = ("_key", "_id", "_flag", "_count")
-INTEGER_EXACT_NAMES = {"sort_order", "year", "quarter", "enrollment_count"}
+INTEGER_EXACT_NAMES = {"sort_order", "year", "quarter", "enrollment_count", "option_code"}
 
 
 def infer_column_type(column_name: str) -> str:

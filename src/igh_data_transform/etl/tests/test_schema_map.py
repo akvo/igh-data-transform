@@ -18,9 +18,10 @@ class TestSchemaMapCompleteness:
             has_source = source is not None
             is_generated = special.get("generate", False)
             is_union = source == "UNION"
+            is_from_optionset = special.get("from_optionset", False)
 
-            assert has_source or is_generated or is_union, (
-                f"{table_name} has no _source_table and is not generated or union"
+            assert has_source or is_generated or is_union or is_from_optionset, (
+                f"{table_name} has no _source_table and is not generated, union, or from_optionset"
             )
 
     def test_dimension_tables_have_pk(self):

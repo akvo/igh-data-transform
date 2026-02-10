@@ -162,6 +162,9 @@ def transform_delimited_bridge(transformer: Transformer, table_name: str, config
     delimiter = special["delimiter"]
     dim_table = special["dimension_table"]
 
+    # Derive the FK column name from config (the non-candidate, non-meta column)
+    fk_col = next(col for col, expr in config.items() if not col.startswith("_") and col != "candidate_key")
+
     transformed = []
 
     for row in transformer.extractor.extract_table(source_table):
@@ -184,12 +187,12 @@ def transform_delimited_bridge(transformer: Transformer, table_name: str, config
                 continue
 
             # Look up the dimension key
-            developer_key = transformer.lookup_dimension_key(dim_table, part)
+            dim_key = transformer.lookup_dimension_key(dim_table, part)
 
-            if developer_key is not None:
+            if dim_key is not None:
                 transformed.append({
                     "candidate_key": candidate_key,
-                    "developer_key": developer_key,
+                    fk_col: dim_key,
                 })
 
     logger.info(f"Transformed {len(transformed)} rows for {table_name}")
