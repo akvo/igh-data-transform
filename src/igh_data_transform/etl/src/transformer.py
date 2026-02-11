@@ -122,13 +122,17 @@ class Transformer:
             return self._transform_delimited_dimension(table_name, config, special)
 
         # Standard dimension transformation
+        has_fk_lookups = special.get("fk_lookups", False)
         transformed = []
         for row in self.extractor.extract_table(source_table):
             new_row = {}
             for target_col, source_expr in config.items():
                 if target_col.startswith("_"):
                     continue
-                new_row[target_col] = self._evaluate_expression(source_expr, row)
+                if has_fk_lookups and source_expr.startswith("FK:"):
+                    new_row[target_col] = self._resolve_fk(source_expr, row, "")
+                else:
+                    new_row[target_col] = self._evaluate_expression(source_expr, row)
             transformed.append(new_row)
 
         logger.info(f"Transformed {len(transformed)} rows for {table_name}")

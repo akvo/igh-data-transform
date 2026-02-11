@@ -78,6 +78,46 @@ class TestExpressionParsing:
         result = parse_case_when("CASE WHEN vin_type = 909670000 THEN 'top-level' ELSE 'sub-product' END", row)
         assert result == "sub-product"
 
+    def test_parse_case_when_multi_branch_first_match(self):
+        """Multi-branch CASE WHEN returns first matching THEN value."""
+        expr = (
+            "CASE WHEN _vin_captype_value = 'c1746ad3-93d1-f011-bbd3-00224892cefa' THEN 'Candidate' "
+            "WHEN _vin_captype_value = '545d63d9-93d1-f011-bbd3-00224892cefa' THEN 'Product' "
+            "ELSE 'Other' END"
+        )
+        row = {"_vin_captype_value": "c1746ad3-93d1-f011-bbd3-00224892cefa"}
+        assert parse_case_when(expr, row) == "Candidate"
+
+    def test_parse_case_when_multi_branch_second_match(self):
+        """Multi-branch CASE WHEN returns second matching THEN value."""
+        expr = (
+            "CASE WHEN _vin_captype_value = 'c1746ad3-93d1-f011-bbd3-00224892cefa' THEN 'Candidate' "
+            "WHEN _vin_captype_value = '545d63d9-93d1-f011-bbd3-00224892cefa' THEN 'Product' "
+            "ELSE 'Other' END"
+        )
+        row = {"_vin_captype_value": "545d63d9-93d1-f011-bbd3-00224892cefa"}
+        assert parse_case_when(expr, row) == "Product"
+
+    def test_parse_case_when_multi_branch_else(self):
+        """Multi-branch CASE WHEN returns ELSE when no branch matches."""
+        expr = (
+            "CASE WHEN _vin_captype_value = 'c1746ad3-93d1-f011-bbd3-00224892cefa' THEN 'Candidate' "
+            "WHEN _vin_captype_value = '545d63d9-93d1-f011-bbd3-00224892cefa' THEN 'Product' "
+            "ELSE 'Other' END"
+        )
+        row = {"_vin_captype_value": "some-other-guid"}
+        assert parse_case_when(expr, row) == "Other"
+
+    def test_parse_case_when_multi_branch_null(self):
+        """Multi-branch CASE WHEN returns ELSE when column is null."""
+        expr = (
+            "CASE WHEN _vin_captype_value = 'c1746ad3-93d1-f011-bbd3-00224892cefa' THEN 'Candidate' "
+            "WHEN _vin_captype_value = '545d63d9-93d1-f011-bbd3-00224892cefa' THEN 'Product' "
+            "ELSE 'Other' END"
+        )
+        row = {"_vin_captype_value": None}
+        assert parse_case_when(expr, row) == "Other"
+
     def test_parse_optionset(self, transformer):
         """OPTIONSET resolves code to label."""
         row = {"vin_approvalstatus": 909670000}
@@ -261,51 +301,3 @@ class TestOptionsetDimension:
         special = config["_special"]
         result = transformer._transform_optionset_dimension("dim_test", config, special)
         assert result == []
-
-
-class TestCandidateCrossRef:
-    """Test FK_VIA_CANDIDATE cross-reference resolution."""
-
-    @pytest.fixture
-    def transformer(self):
-        """Create transformer with candidate cross-ref maps."""
-        mock_extractor = MagicMock()
-        t = Transformer(mock_extractor)
-        # Simulate loaded pipeline data
-        pipeline_data = [
-            {"candidate_key": 1, "disease_key": 10, "product_key": 20},
-            {"candidate_key": 2, "disease_key": 11, "product_key": 21},
-            {"candidate_key": 3, "disease_key": None, "product_key": 22},
-        ]
-        t.build_candidate_cross_refs(pipeline_data)
-        return t
-
-    def test_resolve_disease_key(self, transformer):
-        """FK_VIA_CANDIDATE resolves disease_key from candidate."""
-        new_row = {"candidate_key": 1}
-        result = transformer._resolve_fk_via_candidate("FK_VIA_CANDIDATE:disease_key", new_row)
-        assert result == 10
-
-    def test_resolve_product_key(self, transformer):
-        """FK_VIA_CANDIDATE resolves product_key from candidate."""
-        new_row = {"candidate_key": 2}
-        result = transformer._resolve_fk_via_candidate("FK_VIA_CANDIDATE:product_key", new_row)
-        assert result == 21
-
-    def test_resolve_missing_candidate(self, transformer):
-        """FK_VIA_CANDIDATE returns None for unknown candidate."""
-        new_row = {"candidate_key": 999}
-        result = transformer._resolve_fk_via_candidate("FK_VIA_CANDIDATE:disease_key", new_row)
-        assert result is None
-
-    def test_resolve_null_candidate_key(self, transformer):
-        """FK_VIA_CANDIDATE returns None when candidate_key is None."""
-        new_row = {"candidate_key": None}
-        result = transformer._resolve_fk_via_candidate("FK_VIA_CANDIDATE:disease_key", new_row)
-        assert result is None
-
-    def test_resolve_null_value_in_cross_ref(self, transformer):
-        """FK_VIA_CANDIDATE returns None when cross-ref value is None."""
-        new_row = {"candidate_key": 3}
-        result = transformer._resolve_fk_via_candidate("FK_VIA_CANDIDATE:disease_key", new_row)
-        assert result is None

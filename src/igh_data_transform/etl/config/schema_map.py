@@ -52,6 +52,8 @@ STAR_SCHEMA_MAP = {
         "current_rd_stage": "vin_currentrdstage",
         "countries_approved_count": "vin_numberofcountrieswithproductapproval",
         "countries_approved_agg": "vin_countrieswhereproductisapprovedaggregated",
+        "candidate_type": "CASE WHEN _vin_captype_value = 'c1746ad3-93d1-f011-bbd3-00224892cefa' THEN 'Candidate' WHEN _vin_captype_value = '545d63d9-93d1-f011-bbd3-00224892cefa' THEN 'Product' ELSE 'Other' END",
+        "indication": "vin_indication",
     },
     "dim_disease": {
         "_source_table": "vin_diseases",
@@ -92,6 +94,7 @@ STAR_SCHEMA_MAP = {
                 "fda_approval_date",
                 "who_prequal_date",
                 "who_prequalification",
+                "nra_approval_status",
             ],
         },
         "approval_status": "OPTIONSET:vin_approvalstatus",
@@ -99,6 +102,8 @@ STAR_SCHEMA_MAP = {
         "fda_approval_date": "vin_usfdaapprovaldate",
         "who_prequal_date": "vin_whoprequalificationdate",
         "who_prequalification": "OPTIONSET:vin_whoprequalification",
+        "nra_approval_status": "OPTIONSET:vin_nationalregulatoryauthorityapprovalstatus",
+        "nra_approval_date": "vin_nationalregulatoryauthorityapprovaldate",
     },
     "dim_date": {
         "_source_table": None,  # Generated programmatically
@@ -126,10 +131,12 @@ STAR_SCHEMA_MAP = {
     "dim_priority": {
         "_source_table": "vin_rdpriorities",
         "_pk": "priority_key",
+        "_special": {"fk_lookups": True},
         "vin_rdpriorityid": "vin_rdpriorityid",
         "priority_name": "vin_name",
         "indication": "COALESCE(new_indication, '')",
         "intended_use": "COALESCE(new_intendeduse, '')",
+        "disease_key": "FK:dim_disease.vin_diseaseid|_vin_disease_value",
     },
     "dim_developer": {
         "_source_table": "vin_candidates",
@@ -179,7 +186,7 @@ STAR_SCHEMA_MAP = {
         "secondary_disease_key": "FK:dim_disease.vin_diseaseid|_vin_secondarydisease_value",
         "sub_product_key": "FK:dim_product.vin_productid|_vin_subproduct_value",
         "technology_key": "FK:dim_candidate_tech.COMPOSITE|new_platform,vin_technologytype,vin_iggformatanimalderived,vin_routeofadministrationaggregated",
-        "regulatory_key": "FK:dim_candidate_regulatory.COMPOSITE|vin_approvalstatus,vin_stringentregulatoryauthoritysraapproval,vin_usfdaapprovaldate,vin_whoprequalificationdate,vin_whoprequalification",
+        "regulatory_key": "FK:dim_candidate_regulatory.COMPOSITE|vin_approvalstatus,vin_stringentregulatoryauthoritysraapproval,vin_usfdaapprovaldate,vin_whoprequalificationdate,vin_whoprequalification,vin_nationalregulatoryauthorityapprovalstatus",
         "phase_key": "FK:dim_phase.phase_name|EXTRACT_PHASE:new_rdstage",  # Look up by phase_name after extracting from "Phase I - Drugs"
         "date_key": "FK:dim_date.full_date|EXTRACT_DATE:valid_from",  # Snapshot date from SCD2
         "is_active_flag": "CASE WHEN statecode = 0 THEN 1 ELSE 0 END",
@@ -202,6 +209,7 @@ STAR_SCHEMA_MAP = {
         "locations": "new_locations",
         "age_groups": "new_age",
         "study_type": "new_studytype",
+        "source_text": "vin_source",
     },
     "fact_publication": {
         "_source_table": "vin_sources",

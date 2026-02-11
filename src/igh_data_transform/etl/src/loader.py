@@ -160,6 +160,8 @@ class Loader:
             # bridge_candidate_developer
             ("bridge_candidate_developer", "candidate_key", "dim_candidate_core", "candidate_key"),
             ("bridge_candidate_developer", "developer_key", "dim_developer", "developer_key"),
+            # dim_priority
+            ("dim_priority", "disease_key", "dim_disease", "disease_key"),
             # bridge_candidate_priority
             ("bridge_candidate_priority", "candidate_key", "dim_candidate_core", "candidate_key"),
             ("bridge_candidate_priority", "priority_key", "dim_priority", "priority_key"),
