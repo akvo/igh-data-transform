@@ -118,7 +118,7 @@ STAR_SCHEMA_MAP = {
         "_pk": "country_key",
         "vin_countryid": "vin_countryid",
         "country_name": "vin_name",
-        "iso_code": "COALESCE(vin_countryno, '')",  # Will need manual mapping if needed
+        "iso_code": "LOOKUP:COUNTRY_ISO_CODE",
         "region_name": "COALESCE(NULL, 'Unknown')",  # No region in source, placeholder
     },
     "dim_organization": {

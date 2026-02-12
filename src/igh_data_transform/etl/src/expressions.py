@@ -11,6 +11,7 @@ import logging
 import re
 from typing import Any
 
+from config.country_iso_codes import lookup_iso_code
 from config.phase_sort_order import DEFAULT_SORT_ORDER, PHASE_SORT_ORDER
 
 logger = logging.getLogger(__name__)
@@ -120,4 +121,7 @@ def evaluate_lookup(expr: str, row: dict) -> Any:
     if lookup_type == "PHASE_SORT_ORDER":
         phase_name = row.get("vin_name", "")
         return PHASE_SORT_ORDER.get(phase_name, DEFAULT_SORT_ORDER)
+    if lookup_type == "COUNTRY_ISO_CODE":
+        country_name = row.get("vin_name", "")
+        return lookup_iso_code(country_name)
     return None
