@@ -187,7 +187,7 @@ STAR_SCHEMA_MAP = {
         "sub_product_key": "FK:dim_product.vin_productid|_vin_subproduct_value",
         "technology_key": "FK:dim_candidate_tech.COMPOSITE|new_platform,vin_technologytype,vin_iggformatanimalderived,vin_routeofadministrationaggregated",
         "regulatory_key": "FK:dim_candidate_regulatory.COMPOSITE|vin_approvalstatus,vin_stringentregulatoryauthoritysraapproval,vin_usfdaapprovaldate,vin_whoprequalificationdate,vin_whoprequalification,vin_nationalregulatoryauthorityapprovalstatus",
-        "phase_key": "FK:dim_phase.phase_name|EXTRACT_PHASE:new_rdstage",  # Look up by phase_name after extracting from "Phase I - Drugs"
+        "phase_key": "FK:dim_phase.phase_name|EXTRACT_PHASE:new_currentrdstage",  # Covers all health areas; strips " - ProductType" suffix when present
         "date_key": "FK:dim_date.full_date|EXTRACT_DATE:valid_from",  # Snapshot date from SCD2
         "is_active_flag": "CASE WHEN statecode = 0 THEN 1 ELSE 0 END",
     },

@@ -30,6 +30,8 @@ PHASE_SORT_ORDER = {
     # Regulatory/Approval
     "Regulatory filing": 80,
     "PQ listing and regulatory approval": 85,
+    # Approved
+    "Approved": 88,
     # Post-approval
     "Phase IV": 90,
     "Post-marketing surveillance": 92,

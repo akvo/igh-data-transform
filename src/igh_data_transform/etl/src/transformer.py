@@ -5,6 +5,7 @@ import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
+from config.phase_sort_order import PHASE_SORT_ORDER
 from config.schema_map import STAR_SCHEMA_MAP
 from src import bridges
 from src.expressions import evaluate_lookup, parse_case_when, parse_coalesce
@@ -12,6 +13,11 @@ from src.extractor import Extractor
 
 # Length of ISO date string (YYYY-MM-DD)
 ISO_DATE_LENGTH = 10
+
+# Normalize non-standard phase names to their canonical dim_phase equivalents
+_PHASE_ALIASES = {
+    "Approved product": "Approved",
+}
 
 logger = logging.getLogger(__name__)
 
@@ -135,13 +141,16 @@ class Transformer:
                     new_row[target_col] = self._evaluate_expression(source_expr, row)
             transformed.append(new_row)
 
+        # Inject synthetic phases that exist in PHASE_SORT_ORDER but not in vin_rdstages
+        if table_name == "dim_phase":
+            transformed = self._inject_synthetic_phases(transformed)
+
         logger.info(f"Transformed {len(transformed)} rows for {table_name}")
         return transformed
 
     def _transform_distinct_dimension(self, table_name: str, config: dict) -> list[dict]:
         """
         Transform dimension with DISTINCT handling.
-
         Creates unique combinations of columns and assigns surrogate keys.
         """
         source_table = config["_source_table"]
@@ -314,6 +323,8 @@ class Transformer:
             if combined:
                 # Extract phase part (before " - ")
                 phase_part = combined.split(" - ")[0] if " - " in combined else combined
+                # Normalize known aliases
+                phase_part = _PHASE_ALIASES.get(phase_part, phase_part)
                 # Look up by phase name
                 lookup_val = self._find_phase_id_by_name(phase_part)
             else:
@@ -349,6 +360,20 @@ class Transformer:
     def _find_phase_id_by_name(phase_name: str) -> str | None:
         """Find phase ID by name (returns name for lookup)."""
         return phase_name
+
+    @staticmethod
+    def _inject_synthetic_phases(transformed: list[dict]) -> list[dict]:
+        """Add phases from PHASE_SORT_ORDER that aren't already in the source data."""
+        existing_names = {row["phase_name"] for row in transformed if row.get("phase_name")}
+        for phase_name, sort_order in PHASE_SORT_ORDER.items():
+            if phase_name not in existing_names:
+                transformed.append({
+                    "vin_rdstageid": None,
+                    "phase_name": phase_name,
+                    "sort_order": sort_order,
+                })
+                logger.info(f"Injected synthetic phase: {phase_name}")
+        return transformed
 
     def build_candidate_cross_refs(self, pipeline_data: list[dict]) -> None:
         """Build candidate_key → disease_key/product_key maps from loaded pipeline snapshots."""
