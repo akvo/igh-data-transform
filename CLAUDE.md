@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Python package for IGH data transformation. The project uses UV for dependency management and packaging.
 
-**Distribution:** Python library package installable via pip/uv, with a CLI entry point `igh-data-transform`.
+**Distribution:** Python library package installable via pip/uv, with a CLI entry point `igh-transform`.
 
 **Architecture Context:** See `../IGH_Data_Pipeline_LLD.md` for the complete Low-Level Design document.
 
@@ -28,21 +28,23 @@ igh-transform bronze-to-silver --bronze-db <path> --silver-db <path>
 igh-transform silver-to-gold --silver-db <path>
 ```
 
-### Planned Package Structure
+### Package Structure
 
 ```
 src/igh_data_transform/
 ├── __init__.py
 ├── cli.py                    # CLI entry point
 ├── transformations/
-│   ├── dimensions.py         # dim_candidates, dim_products, dim_diseases, etc.
-│   ├── facts.py              # fact_candidate_history, fact_clinical_trials
-│   └── aggregations.py       # Gold layer materialized views
-├── utils/
-│   └── database.py           # SQLite connection utilities
-sql/
-├── silver/                   # SQL templates for Silver tables
-└── gold/                     # SQL templates for Gold views
+│   ├── __init__.py
+│   ├── bronze_to_silver.py   # Orchestrates Bronze → Silver pipeline
+│   ├── candidates.py         # vin_candidates table transformer
+│   ├── cleanup.py            # Shared cleanup utilities (drop columns, rename, normalize, etc.)
+│   ├── clinical_trials.py    # vin_clinical_trials table transformer
+│   ├── diseases.py           # vin_diseases table transformer
+│   ├── priorities.py         # vin_priorities table transformer
+│   └── silver_to_gold.py     # Silver → Gold pipeline (stub)
+└── utils/
+    └── database.py           # SQLite connection utilities
 ```
 
 ## Development Commands
@@ -54,7 +56,7 @@ sql/
 # Install UV if not already installed
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Install Python and dependencies (UV auto-installs Python 3.12 if needed)
+# Install Python and dependencies (UV auto-installs Python 3.10 if needed)
 uv sync
 
 # Install with dev dependencies (when available)
@@ -75,7 +77,7 @@ pip install -e .[dev]
 **Recommended - using `uv run` (no venv activation needed):**
 ```bash
 # Run the CLI directly
-uv run igh-data-transform
+uv run igh-transform
 
 # Run Python scripts directly
 uv run python -m igh_data_transform
@@ -88,7 +90,7 @@ source .venv/bin/activate  # On Linux/Mac
 .venv\Scripts\activate     # On Windows
 
 # Then run normally
-igh-data-transform
+igh-transform
 ```
 
 ### Development Workflow
@@ -108,11 +110,11 @@ Common UV commands:
 **Configuration:**
 - `pyproject.toml` - Project metadata, dependencies, and build configuration
 - `uv.lock` - Locked dependency versions
-- `.python-version` - Python version specification (3.12)
+- `.python-version` - Python version specification (3.10)
 
 ## Development Notes
 
-- Python version: 3.12 (automatically managed by UV via `.python-version` file)
+- Python version: >=3.10 (automatically managed by UV via `.python-version` file)
 - Build system: uv_build
 - Package is editable-installed by default during development
 - UV handles Python installation - no need to pre-install Python
