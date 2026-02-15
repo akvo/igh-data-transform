@@ -103,7 +103,10 @@ The project uses UV for dependency management. Common commands:
 - **Add a dev dependency**: `uv add --dev <package-name>`
 - **Update dependencies**: `uv sync`
 - **Run commands without activating venv**: `uv run <command>`
-- **Run tests**: `uv run pytest`
+- **Run unit tests**: `uv run pytest`
+- **Run e2e tests** (requires Bronze DB or Dataverse credentials): `uv run pytest --e2e -v`
+- **Run all tests**: `uv run pytest --all -v`
+- **Run e2e with custom Bronze DB**: `E2E_BRONZE_DB_PATH=/path/to/bronze.db uv run pytest --e2e -v`
 - **Run tests with coverage**: `uv run pytest --cov=igh_data_transform --cov-report=term-missing`
 - **Run linter**: `uv run ruff check src/ tests/`
 

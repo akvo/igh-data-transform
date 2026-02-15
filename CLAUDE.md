@@ -47,6 +47,25 @@ src/igh_data_transform/
     └── database.py           # SQLite connection utilities
 ```
 
+### Test Structure
+
+```
+tests/
+├── conftest.py               # Shared fixtures + --e2e/--all CLI hooks
+├── unit/                     # Fast unit tests (mocked data)
+│   ├── test_bronze_to_silver.py
+│   ├── test_candidates.py
+│   ├── test_clinical_trials.py
+│   ├── test_cleanup.py
+│   ├── test_diseases.py
+│   ├── test_priorities.py
+│   └── ...
+├── e2e/                      # End-to-end tests (real Bronze DB)
+│   ├── conftest.py           # Session-scoped Bronze/Silver DB fixtures
+│   └── test_bronze_to_silver_e2e.py
+└── data/                     # Cached Bronze DB (gitignored)
+```
+
 ## Development Commands
 
 ### Environment Setup
@@ -101,6 +120,28 @@ Common UV commands:
 - **Update dependencies**: `uv sync`
 - **Run commands without activating venv**: `uv run <command>`
 - **Run Python scripts**: `uv run python <script.py>`
+
+### Running Tests
+
+```bash
+# Unit tests only (default — e2e tests are excluded)
+uv run pytest -v
+
+# E2e tests only (requires a Bronze DB or Dataverse credentials)
+uv run pytest --e2e -v
+
+# All tests including e2e
+uv run pytest --all -v
+
+# E2e with a pre-existing Bronze DB
+E2E_BRONZE_DB_PATH=/path/to/bronze.db uv run pytest --e2e -v
+```
+
+**E2e test Bronze DB resolution order:**
+1. `E2E_BRONZE_DB_PATH` env var (if set)
+2. Cached `tests/data/bronze.db` (if exists with core tables)
+3. Auto-sync via `sync-dataverse` (requires `DATAVERSE_API_URL`, `DATAVERSE_CLIENT_ID`, `DATAVERSE_CLIENT_SECRET`, `DATAVERSE_SCOPE`)
+4. Skip with helpful message if none available
 
 ## Project Structure
 
