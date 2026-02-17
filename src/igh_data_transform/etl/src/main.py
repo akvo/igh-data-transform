@@ -144,6 +144,13 @@ def run_etl(source_path: Path, output_path: Path) -> bool:
                 loader.create_schema()
                 transformer = Transformer(extractor)
                 _process_tables(transformer, loader, logger)
+
+                last_sync = extractor.get_last_sync_date()
+                if last_sync:
+                    loader.write_metadata({"last_sync_date": last_sync})
+                else:
+                    logger.warning("No completed sync with changes found in _sync_log")
+
                 loader.print_summary()
 
     except Exception as e:

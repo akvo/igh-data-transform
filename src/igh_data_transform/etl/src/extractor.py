@@ -180,6 +180,19 @@ class Extractor:
         for row in cursor:
             yield dict(row)
 
+    def get_last_sync_date(self) -> str | None:
+        """Get the end_time of the most recent completed sync with actual data changes."""
+        cursor = self._get_cursor()
+        cursor.execute("""
+            SELECT end_time FROM _sync_log
+            WHERE status = 'completed'
+              AND (records_added > 0 OR records_updated > 0)
+            ORDER BY end_time DESC
+            LIMIT 1
+        """)
+        row = cursor.fetchone()
+        return row[0] if row else None
+
     def count_rows(self, table_name: str) -> int:
         """Get row count for a table."""
         cursor = self._get_cursor()

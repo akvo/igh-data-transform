@@ -216,6 +216,23 @@ class Loader:
         except sqlite3.Error as e:
             logger.warning(f"Could not verify FK {fact_table}.{fk_col}: {e}")
 
+    def write_metadata(self, metadata: dict[str, str]) -> None:
+        """Write key-value metadata into the target database."""
+        cursor = self._get_cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS _etl_metadata (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
+        for key, value in metadata.items():
+            cursor.execute(
+                "INSERT OR REPLACE INTO _etl_metadata (key, value) VALUES (?, ?)",
+                (key, value),
+            )
+        self._conn.commit()
+        logger.info(f"Wrote {len(metadata)} metadata entries")
+
     def print_summary(self) -> None:
         """Print summary of loaded tables."""
         cursor = self._get_cursor()

@@ -153,6 +153,10 @@
         ],
         "new_currentrdstage": [
           {
+            "column": "new_rdstage2021",
+            "year": 2021
+          },
+          {
             "column": "new_2023currentrdstage",
             "year": 2023
           },
@@ -162,7 +166,7 @@
           },
           {
             "column": "vin_currentrdstage",
-            "year": 2025
+            "year": 9999
           }
         ],
         "vin_candidatename": [
