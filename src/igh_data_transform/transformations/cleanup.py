@@ -3,6 +3,23 @@
 import pandas as pd
 
 
+def drop_columns_by_name(
+    df: pd.DataFrame,
+    columns: list[str],
+) -> pd.DataFrame:
+    """Drop specific named columns from a DataFrame.
+
+    Args:
+        df: Input DataFrame
+        columns: List of column names to drop
+
+    Returns:
+        DataFrame with specified columns removed. Columns not present are ignored.
+    """
+    cols_to_drop = [c for c in columns if c in df.columns]
+    return df.drop(columns=cols_to_drop)
+
+
 def drop_empty_columns(
     df: pd.DataFrame,
     preserve: list[str] | None = None,

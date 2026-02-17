@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from igh_data_transform.transformations.bronze_to_silver import (
+    TABLE_REGISTRY,
     bronze_to_silver,
     transform_table,
 )
@@ -107,13 +108,13 @@ class TestBronzeToSilver:
 
     @pytest.fixture
     def bronze_db(self, tmp_path: Path) -> Path:
-        """Create a Bronze database with test data."""
+        """Create a Bronze database with test data (generic tables)."""
         db_path = tmp_path / "bronze.db"
         conn = sqlite3.connect(str(db_path))
 
-        # Create test table with typical Bronze layer structure
+        # Use non-registered table names for generic fallthrough testing
         conn.execute("""
-            CREATE TABLE vin_candidates (
+            CREATE TABLE some_table (
                 row_id INTEGER PRIMARY KEY,
                 vin_name TEXT,
                 status TEXT,
@@ -123,22 +124,22 @@ class TestBronzeToSilver:
             )
         """)
         conn.execute("""
-            INSERT INTO vin_candidates (row_id, vin_name, status, empty_col, valid_from, valid_to)
+            INSERT INTO some_table (row_id, vin_name, status, empty_col, valid_from, valid_to)
             VALUES
                 (1, '  Product A  ', 'Active', NULL, '2024-01-01', NULL),
-                (2, 'Product<br>B', 'Inactive', NULL, '2024-01-02', NULL)
+                (2, 'Product B', 'Inactive', NULL, '2024-01-02', NULL)
         """)
 
-        # Create a second table
+        # Create a second generic table
         conn.execute("""
-            CREATE TABLE vin_diseases (
+            CREATE TABLE another_table (
                 row_id INTEGER PRIMARY KEY,
                 disease_name TEXT,
                 valid_to TEXT
             )
         """)
         conn.execute("""
-            INSERT INTO vin_diseases (row_id, disease_name, valid_to)
+            INSERT INTO another_table (row_id, disease_name, valid_to)
             VALUES (1, 'Disease A', NULL)
         """)
 
@@ -163,8 +164,8 @@ class TestBronzeToSilver:
         tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         table_names = [t[0] for t in tables]
 
-        assert "vin_candidates" in table_names
-        assert "vin_diseases" in table_names
+        assert "some_table" in table_names
+        assert "another_table" in table_names
         conn.close()
 
     def test_drops_empty_columns_in_silver(self, bronze_db: Path, silver_db_path: Path):
@@ -172,7 +173,7 @@ class TestBronzeToSilver:
         bronze_to_silver(str(bronze_db), str(silver_db_path))
 
         conn = sqlite3.connect(str(silver_db_path))
-        cursor = conn.execute("PRAGMA table_info(vin_candidates)")
+        cursor = conn.execute("PRAGMA table_info(some_table)")
         columns = [row[1] for row in cursor.fetchall()]
         conn.close()
 
@@ -184,7 +185,7 @@ class TestBronzeToSilver:
         bronze_to_silver(str(bronze_db), str(silver_db_path))
 
         conn = sqlite3.connect(str(silver_db_path))
-        count = conn.execute("SELECT COUNT(*) FROM vin_candidates").fetchone()[0]
+        count = conn.execute("SELECT COUNT(*) FROM some_table").fetchone()[0]
         conn.close()
 
         assert count == 2
@@ -222,8 +223,8 @@ class TestBronzeToSilver:
         """Test that existing Silver tables are replaced."""
         # Create Silver with different data
         conn = sqlite3.connect(str(silver_db_path))
-        conn.execute("CREATE TABLE vin_candidates (old_col TEXT)")
-        conn.execute("INSERT INTO vin_candidates VALUES ('old_data')")
+        conn.execute("CREATE TABLE some_table (old_col TEXT)")
+        conn.execute("INSERT INTO some_table VALUES ('old_data')")
         conn.commit()
         conn.close()
 
@@ -232,9 +233,227 @@ class TestBronzeToSilver:
 
         # Verify old data is replaced
         conn = sqlite3.connect(str(silver_db_path))
-        cursor = conn.execute("PRAGMA table_info(vin_candidates)")
+        cursor = conn.execute("PRAGMA table_info(some_table)")
         columns = [row[1] for row in cursor.fetchall()]
         conn.close()
 
         assert "old_col" not in columns
         assert "vin_name" in columns
+
+
+class TestRegistryDispatch:
+    """Tests for table-specific transformer dispatch."""
+
+    def _create_priorities_db(self, db_path: Path) -> None:
+        """Create a Bronze DB with vin_rdpriorities and a generic table."""
+        conn = sqlite3.connect(str(db_path))
+        conn.execute("""
+            CREATE TABLE vin_rdpriorities (
+                row_id INTEGER,
+                vin_name TEXT,
+                new_author TEXT,
+                new_safety TEXT,
+                json_response TEXT,
+                sync_time TEXT,
+                valid_from TEXT,
+                valid_to TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO vin_rdpriorities VALUES
+                (1, 'Priority A', 'World Health Organization', 'Safe',
+                 '{"k":"v"}', '2026-01-09', '2025-01-01', NULL)
+        """)
+        # Generic table that should fall through
+        conn.execute("""
+            CREATE TABLE generic_table (
+                col_a TEXT,
+                col_b TEXT,
+                valid_to TEXT
+            )
+        """)
+        conn.execute("INSERT INTO generic_table VALUES ('x', NULL, NULL)")
+        conn.commit()
+        conn.close()
+
+    def test_registry_contains_expected_tables(self):
+        assert "vin_candidates" in TABLE_REGISTRY
+        assert "vin_clinicaltrials" in TABLE_REGISTRY
+        assert "vin_diseases" in TABLE_REGISTRY
+        assert "vin_rdpriorities" in TABLE_REGISTRY
+
+    def test_registered_table_dispatches_to_transformer(self, tmp_path: Path):
+        """Registered table uses its specific transformer."""
+        bronze_db = tmp_path / "bronze.db"
+        silver_db = tmp_path / "silver.db"
+        self._create_priorities_db(bronze_db)
+
+        result = bronze_to_silver(str(bronze_db), str(silver_db))
+        assert result is True
+
+        conn = sqlite3.connect(str(silver_db))
+        df = pd.read_sql_query("SELECT * FROM vin_rdpriorities", conn)
+        conn.close()
+
+        # Priorities transformer renames vin_name -> name
+        assert "name" in df.columns
+        assert "vin_name" not in df.columns
+        # Priorities transformer maps "World Health Organization" -> "WHO"
+        assert df["author"].iloc[0] == "WHO"
+        # Metadata columns dropped
+        assert "row_id" not in df.columns
+        assert "json_response" not in df.columns
+
+    def test_unregistered_table_uses_generic_transform(self, tmp_path: Path):
+        """Unregistered tables fall through to generic transform_table."""
+        bronze_db = tmp_path / "bronze.db"
+        silver_db = tmp_path / "silver.db"
+        self._create_priorities_db(bronze_db)
+
+        bronze_to_silver(str(bronze_db), str(silver_db))
+
+        conn = sqlite3.connect(str(silver_db))
+        df = pd.read_sql_query("SELECT * FROM generic_table", conn)
+        conn.close()
+
+        # Generic transform drops all-null columns
+        assert "col_b" not in df.columns
+        # Preserves valid_to
+        assert "valid_to" in df.columns
+        assert "col_a" in df.columns
+
+    def test_option_sets_loaded_and_passed_to_transformer(self, tmp_path: Path):
+        """Option sets from Bronze are loaded and passed to transformers."""
+        bronze_db = tmp_path / "bronze.db"
+        silver_db = tmp_path / "silver.db"
+        conn = sqlite3.connect(str(bronze_db))
+
+        # Create diseases table
+        conn.execute("""
+            CREATE TABLE vin_diseases (
+                vin_disease TEXT,
+                vin_name TEXT,
+                new_globalhealtharea INTEGER,
+                vin_diseaseid TEXT,
+                valid_from TEXT,
+                valid_to TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO vin_diseases VALUES
+                ('Malaria', 'Disease A', 100000002, 'did-1', '2025-01-01', NULL)
+        """)
+
+        # Create the option set table
+        conn.execute("""
+            CREATE TABLE _optionset_new_globalhealtharea (
+                code INTEGER,
+                label TEXT,
+                first_seen TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO _optionset_new_globalhealtharea VALUES
+                (100000000, 'Neglected disease', '2026-01-09'),
+                (100000002, 'Sexual & reproductive health', '2026-01-09')
+        """)
+
+        conn.commit()
+        conn.close()
+
+        bronze_to_silver(str(bronze_db), str(silver_db))
+
+        # Verify the cleaned option set was written to Silver
+        conn = sqlite3.connect(str(silver_db))
+        os_df = pd.read_sql_query(
+            "SELECT * FROM _optionset_new_globalhealtharea", conn
+        )
+        conn.close()
+
+        # Diseases transformer renames "Sexual & reproductive health" -> "Womens Health"
+        labels = list(os_df["label"])
+        assert "Womens Health" in labels
+        assert "Sexual & reproductive health" not in labels
+
+    def test_unmodified_option_set_copied_as_is(self, tmp_path: Path):
+        """Option set tables not touched by a transformer are copied as-is."""
+        bronze_db = tmp_path / "bronze.db"
+        silver_db = tmp_path / "silver.db"
+        conn = sqlite3.connect(str(bronze_db))
+
+        # Only generic tables (no registered tables that use this option set)
+        conn.execute("""
+            CREATE TABLE _optionset_some_field (
+                code INTEGER,
+                label TEXT,
+                first_seen TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO _optionset_some_field VALUES
+                (1, 'Label A', '2026-01-09'),
+                (2, 'Label B', '2026-01-09')
+        """)
+        conn.commit()
+        conn.close()
+
+        bronze_to_silver(str(bronze_db), str(silver_db))
+
+        conn = sqlite3.connect(str(silver_db))
+        os_df = pd.read_sql_query("SELECT * FROM _optionset_some_field", conn)
+        conn.close()
+
+        assert len(os_df) == 2
+        assert list(os_df["label"]) == ["Label A", "Label B"]
+
+    def test_cleaned_option_set_overrides_raw_copy(self, tmp_path: Path):
+        """When a transformer cleans an option set, the cleaned version is written."""
+        bronze_db = tmp_path / "bronze.db"
+        silver_db = tmp_path / "silver.db"
+        conn = sqlite3.connect(str(bronze_db))
+
+        # Create diseases table
+        conn.execute("""
+            CREATE TABLE vin_diseases (
+                vin_disease TEXT,
+                vin_name TEXT,
+                new_globalhealtharea INTEGER,
+                vin_diseaseid TEXT,
+                valid_from TEXT,
+                valid_to TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO vin_diseases VALUES
+                ('Malaria', 'Disease A', 100000000, 'did-1', '2025-01-01', NULL)
+        """)
+
+        # Option set also exists as a separate table in Bronze
+        conn.execute("""
+            CREATE TABLE _optionset_new_globalhealtharea (
+                code INTEGER,
+                label TEXT,
+                first_seen TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO _optionset_new_globalhealtharea VALUES
+                (100000000, 'Neglected disease', '2026-01-09'),
+                (100000002, 'Sexual & reproductive health', '2026-01-09')
+        """)
+
+        conn.commit()
+        conn.close()
+
+        bronze_to_silver(str(bronze_db), str(silver_db))
+
+        # The cleaned version should be in Silver (not the raw copy)
+        conn = sqlite3.connect(str(silver_db))
+        os_df = pd.read_sql_query(
+            "SELECT * FROM _optionset_new_globalhealtharea", conn
+        )
+        conn.close()
+
+        labels = list(os_df["label"])
+        assert "Womens Health" in labels
+        assert "Sexual & reproductive health" not in labels

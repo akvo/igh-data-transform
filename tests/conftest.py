@@ -6,6 +6,26 @@ from pathlib import Path
 import pytest
 
 
+def pytest_addoption(parser):
+    parser.addoption("--e2e", action="store_true", default=False, help="Run only e2e tests")
+    parser.addoption("--all", action="store_true", default=False, help="Run all tests including e2e")
+
+
+def pytest_collection_modifyitems(config, items):
+    run_e2e = config.getoption("--e2e")
+    run_all = config.getoption("--all")
+
+    if run_all:
+        return  # no filtering
+
+    if run_e2e:
+        # Keep only e2e-marked tests
+        items[:] = [item for item in items if item.get_closest_marker("e2e")]
+    else:
+        # Default: exclude e2e-marked tests
+        items[:] = [item for item in items if not item.get_closest_marker("e2e")]
+
+
 @pytest.fixture
 def temp_db_path(tmp_path: Path) -> Path:
     """Create a temporary database path."""

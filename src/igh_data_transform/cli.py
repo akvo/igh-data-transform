@@ -39,17 +39,6 @@ def create_parser() -> argparse.ArgumentParser:
         help="Path to Silver layer SQLite database",
     )
 
-    # validate command
-    validate_parser = subparsers.add_parser(
-        "validate",
-        help="Validate data quality in database",
-    )
-    validate_parser.add_argument(
-        "--db",
-        required=True,
-        help="Path to SQLite database to validate",
-    )
-
     return parser
 
 
@@ -75,17 +64,6 @@ def main() -> int:
         print(f"Transforming Silver to Gold: {args.silver_db}")
         success = silver_to_gold(args.silver_db)
         return 0 if success else 1
-
-    if args.command == "validate":
-        from igh_data_transform.utils.validators import validate_data_quality
-
-        print(f"Validating data quality: {args.db}")
-        errors = validate_data_quality(args.db)
-        if errors:
-            print(f"Found {len(errors)} validation errors")
-            return 1
-        print("Validation passed")
-        return 0
 
     return 0
 
