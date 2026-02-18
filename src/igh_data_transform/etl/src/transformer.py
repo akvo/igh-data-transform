@@ -107,6 +107,18 @@ class Transformer:
         cache = self._composite_caches.get(table_name, {})
         return cache.get(key_values)
 
+    def _collect_referenced_phase_names(self) -> set[str]:
+        """Scan vin_candidates.new_currentrdstage to find all referenced phase names."""
+        referenced: set[str] = set()
+        for row in self.extractor.extract_table("vin_candidates", ["new_currentrdstage"]):
+            raw = row.get("new_currentrdstage")
+            if not raw:
+                continue
+            phase = raw.split(" - ")[0] if " - " in raw else raw
+            phase = _PHASE_ALIASES.get(phase, phase)
+            referenced.add(phase)
+        return referenced
+
     def transform_dimension(self, table_name: str) -> list[dict]:
         """Transform a dimension table according to schema map."""
         config = STAR_SCHEMA_MAP[table_name]
@@ -143,9 +155,20 @@ class Transformer:
                     new_row[target_col] = self._evaluate_expression(source_expr, row)
             transformed.append(new_row)
 
-        # Inject synthetic phases that exist in PHASE_SORT_ORDER but not in vin_rdstages
         if table_name == "dim_phase":
-            transformed = self._inject_synthetic_phases(transformed)
+            referenced = self._collect_referenced_phase_names()
+            # Deduplicate by phase_name (keep first occurrence)
+            seen_names: set[str] = set()
+            deduped: list[dict] = []
+            for row in transformed:
+                name = row.get("phase_name")
+                if name and name not in seen_names:
+                    seen_names.add(name)
+                    deduped.append(row)
+            # Filter to only phases referenced by candidates
+            transformed = [r for r in deduped if r.get("phase_name") in referenced]
+            # Inject synthetic phases (only those referenced)
+            transformed = self._inject_synthetic_phases(transformed, referenced)
 
         logger.info(f"Transformed {len(transformed)} rows for {table_name}")
         return transformed
@@ -362,11 +385,16 @@ class Transformer:
         return phase_name
 
     @staticmethod
-    def _inject_synthetic_phases(transformed: list[dict]) -> list[dict]:
+    def _inject_synthetic_phases(
+        transformed: list[dict],
+        referenced_phases: set[str] | None = None,
+    ) -> list[dict]:
         """Add phases from PHASE_SORT_ORDER that aren't already in the source data."""
         existing_names = {row["phase_name"] for row in transformed if row.get("phase_name")}
         for phase_name, sort_order in PHASE_SORT_ORDER.items():
             if phase_name not in existing_names:
+                if referenced_phases is not None and phase_name not in referenced_phases:
+                    continue
                 transformed.append({
                     "vin_rdstageid": None,
                     "phase_name": phase_name,
