@@ -4,22 +4,101 @@ import pandas as pd
 
 from igh_data_transform.transformations.candidates import (
     _expand_temporal_rows,
+    _resolve_rdstage_fk,
     transform_candidates,
 )
 
 
+class TestResolveRdstageFk:
+    """Tests for _resolve_rdstage_fk function."""
+
+    def test_resolves_guid_to_stage_name(self):
+        """GUID maps to vin_name with product suffix stripped."""
+        df = pd.DataFrame(
+            {
+                "_vin_currentrndstage_value": ["guid-1", "guid-2"],
+                "vin_candidateid": ["c1", "c2"],
+            }
+        )
+        rdstageproducts = pd.DataFrame(
+            {
+                "vin_rdstageproductid": ["guid-1", "guid-2"],
+                "vin_name": ["Phase III - Drugs", "Phase I - Vaccines"],
+            }
+        )
+        result = _resolve_rdstage_fk(df, rdstageproducts)
+        assert result["_resolved_rdstage_2025"].iloc[0] == "Phase III"
+        assert result["_resolved_rdstage_2025"].iloc[1] == "Phase I"
+
+    def test_unknown_guid_resolves_to_nan(self):
+        """Unknown GUID produces NaN in resolved column."""
+        df = pd.DataFrame(
+            {
+                "_vin_currentrndstage_value": ["unknown-guid"],
+                "vin_candidateid": ["c1"],
+            }
+        )
+        rdstageproducts = pd.DataFrame(
+            {
+                "vin_rdstageproductid": ["guid-1"],
+                "vin_name": ["Phase III - Drugs"],
+            }
+        )
+        result = _resolve_rdstage_fk(df, rdstageproducts)
+        assert pd.isna(result["_resolved_rdstage_2025"].iloc[0])
+
+    def test_compound_name_preserves_prefix(self):
+        """'Deactivated - Phase IV - Drugs' -> 'Deactivated - Phase IV'."""
+        df = pd.DataFrame(
+            {
+                "_vin_currentrndstage_value": ["guid-1"],
+                "vin_candidateid": ["c1"],
+            }
+        )
+        rdstageproducts = pd.DataFrame(
+            {
+                "vin_rdstageproductid": ["guid-1"],
+                "vin_name": ["Deactivated - Phase IV - Drugs"],
+            }
+        )
+        result = _resolve_rdstage_fk(df, rdstageproducts)
+        assert result["_resolved_rdstage_2025"].iloc[0] == "Deactivated - Phase IV"
+
+    def test_does_not_modify_original(self):
+        """Original DataFrame is not modified."""
+        df = pd.DataFrame(
+            {
+                "_vin_currentrndstage_value": ["guid-1"],
+                "vin_candidateid": ["c1"],
+            }
+        )
+        rdstageproducts = pd.DataFrame(
+            {
+                "vin_rdstageproductid": ["guid-1"],
+                "vin_name": ["Phase III - Drugs"],
+            }
+        )
+        original_cols = list(df.columns)
+        _resolve_rdstage_fk(df, rdstageproducts)
+        assert list(df.columns) == original_cols
+
+
 class TestExpandTemporalRows:
-    """Tests for _expand_temporal_rows function."""
+    """Tests for _expand_temporal_rows function.
+
+    These tests operate on DataFrames after FK resolution, so 2025 data
+    appears in the _resolved_rdstage_2025 column (not vin_currentrdstage).
+    """
 
     def test_candidate_with_all_temporal_years(self):
-        """Candidate with data in 2023, 2024, and current (9999→2025) produces 3 rows."""
+        """Candidate with data in 2023, 2024, and 2025 produces 3 rows."""
         df = pd.DataFrame(
             {
                 "vin_candidateid": ["cand-1"],
                 "vin_name": ["CandA"],
                 "new_2023currentrdstage": ["Phase I"],
                 "new_2024currentrdstage": ["Phase II"],
-                "vin_currentrdstage": ["Phase III"],
+                "_resolved_rdstage_2025": ["Phase III"],
                 "vin_product": ["Drugs"],
             }
         )
@@ -39,7 +118,7 @@ class TestExpandTemporalRows:
                 "vin_name": ["CandA"],
                 "new_2023currentrdstage": [None],
                 "new_2024currentrdstage": ["Phase II"],
-                "vin_currentrdstage": ["Phase III"],
+                "_resolved_rdstage_2025": ["Phase III"],
                 "vin_product": ["Drugs"],
             }
         )
@@ -47,14 +126,14 @@ class TestExpandTemporalRows:
         assert len(result) == 2
 
     def test_candidate_with_only_current_year(self):
-        """Candidate with only current-year data produces 1 row."""
+        """Candidate with only 2025 data produces 1 row."""
         df = pd.DataFrame(
             {
                 "vin_candidateid": ["cand-1"],
                 "vin_name": ["CandA"],
                 "new_2023currentrdstage": [None],
                 "new_2024currentrdstage": [None],
-                "vin_currentrdstage": ["Phase III"],
+                "_resolved_rdstage_2025": ["Phase III"],
                 "vin_product": ["Drugs"],
             }
         )
@@ -69,7 +148,7 @@ class TestExpandTemporalRows:
                 "vin_name": ["CandA"],
                 "new_2023currentrdstage": ["Discovery"],
                 "new_2024currentrdstage": ["Preclinical"],
-                "vin_currentrdstage": ["Phase I"],
+                "_resolved_rdstage_2025": ["Phase I"],
                 "vin_product": ["Drugs"],
             }
         )
@@ -81,25 +160,63 @@ class TestExpandTemporalRows:
         assert r2024["new_currentrdstage"].iloc[0] == "Preclinical"
         assert r2025["new_currentrdstage"].iloc[0] == "Phase I"
 
-    def test_valid_from_valid_to_dates(self):
-        """Temporal expansion produces date strings for valid_from/valid_to."""
+    def test_per_candidate_valid_to_consecutive_years(self):
+        """Candidate with 2023, 2024, 2025: valid_to chains to next period."""
         df = pd.DataFrame(
             {
                 "vin_candidateid": ["cand-1"],
                 "vin_name": ["CandA"],
                 "new_2023currentrdstage": ["Phase I"],
                 "new_2024currentrdstage": ["Phase II"],
-                "vin_currentrdstage": ["Phase III"],
+                "_resolved_rdstage_2025": ["Phase III"],
                 "vin_product": ["Drugs"],
             }
         )
         result = _expand_temporal_rows(df)
-        r2023 = result[result["valid_from"].str.startswith("2023")]
-        assert r2023["valid_from"].iloc[0] == "2023-01-01"
-        assert r2023["valid_to"].iloc[0] == "2024-01-01"
-        # Last version has valid_to = None/NaN (still current)
-        r2025 = result[result["valid_from"].str.startswith("2025")]
-        assert pd.isna(r2025["valid_to"].iloc[0])
+        result = result.sort_values("valid_from").reset_index(drop=True)
+        assert result.loc[0, "valid_from"] == "2023-01-01"
+        assert result.loc[0, "valid_to"] == "2024-01-01"
+        assert result.loc[1, "valid_from"] == "2024-01-01"
+        assert result.loc[1, "valid_to"] == "2025-01-01"
+        assert result.loc[2, "valid_from"] == "2025-01-01"
+        assert pd.isna(result.loc[2, "valid_to"])
+
+    def test_per_candidate_valid_to_with_gap(self):
+        """Candidate with 2021 and 2024 (gap): valid_to jumps to next populated period."""
+        df = pd.DataFrame(
+            {
+                "vin_candidateid": ["cand-1"],
+                "vin_name": ["CandA"],
+                "new_rdstage2021": ["Discovery"],
+                "new_2023currentrdstage": [None],
+                "new_2024currentrdstage": ["Phase I"],
+                "_resolved_rdstage_2025": [None],
+                "vin_product": ["Drugs"],
+            }
+        )
+        result = _expand_temporal_rows(df)
+        result = result.sort_values("valid_from").reset_index(drop=True)
+        assert len(result) == 2
+        assert result.loc[0, "valid_from"] == "2021-01-01"
+        assert result.loc[0, "valid_to"] == "2024-01-01"
+        assert result.loc[1, "valid_from"] == "2024-01-01"
+        assert pd.isna(result.loc[1, "valid_to"])
+
+    def test_per_candidate_valid_to_single_year(self):
+        """Candidate with only 2025: valid_to = None."""
+        df = pd.DataFrame(
+            {
+                "vin_candidateid": ["cand-1"],
+                "vin_name": ["CandA"],
+                "new_2023currentrdstage": [None],
+                "new_2024currentrdstage": [None],
+                "_resolved_rdstage_2025": ["Phase III"],
+                "vin_product": ["Drugs"],
+            }
+        )
+        result = _expand_temporal_rows(df)
+        assert len(result) == 1
+        assert pd.isna(result["valid_to"].iloc[0])
 
     def test_temporal_source_columns_dropped(self):
         """Year-specific source columns are consumed and removed from output."""
@@ -109,7 +226,7 @@ class TestExpandTemporalRows:
                 "vin_name": ["CandA"],
                 "new_2023currentrdstage": ["Phase I"],
                 "new_2024currentrdstage": ["Phase II"],
-                "vin_currentrdstage": ["Phase III"],
+                "_resolved_rdstage_2025": ["Phase III"],
                 "vin_product": ["Drugs"],
             }
         )
@@ -117,7 +234,7 @@ class TestExpandTemporalRows:
         for col in [
             "new_2023currentrdstage",
             "new_2024currentrdstage",
-            "vin_currentrdstage",
+            "_resolved_rdstage_2025",
             "new_rdstage2021",
         ]:
             assert col not in result.columns
@@ -130,7 +247,7 @@ class TestExpandTemporalRows:
                 "vin_name": ["CandA"],
                 "new_2023currentrdstage": ["Phase I"],
                 "new_2024currentrdstage": [None],
-                "vin_currentrdstage": ["Phase III"],
+                "_resolved_rdstage_2025": ["Phase III"],
                 "vin_product": ["Drugs"],
             }
         )
@@ -146,13 +263,35 @@ class TestExpandTemporalRows:
                 "vin_name": ["CandA", "CandB"],
                 "new_2023currentrdstage": ["Phase I", "Discovery"],
                 "new_2024currentrdstage": ["Phase II", None],
-                "vin_currentrdstage": [None, "Preclinical"],
+                "_resolved_rdstage_2025": [None, "Preclinical"],
                 "vin_product": ["Drugs", "Vaccines"],
             }
         )
         result = _expand_temporal_rows(df)
         # CandA: 2023 + 2024 = 2 rows, CandB: 2023 + 2025 = 2 rows
         assert len(result) == 4
+
+    def test_multiple_candidates_independent_valid_to(self):
+        """Each candidate's valid_to is computed from its own periods."""
+        df = pd.DataFrame(
+            {
+                "vin_candidateid": ["cand-1", "cand-2"],
+                "vin_name": ["CandA", "CandB"],
+                "new_2023currentrdstage": ["Phase I", "Discovery"],
+                "new_2024currentrdstage": ["Phase II", None],
+                "_resolved_rdstage_2025": [None, "Preclinical"],
+                "vin_product": ["Drugs", "Vaccines"],
+            }
+        )
+        result = _expand_temporal_rows(df)
+        # CandA: 2023 (valid_to=2024), 2024 (valid_to=None)
+        cand_a = result[result["vin_candidateid"] == "cand-1"].sort_values("valid_from")
+        assert cand_a.iloc[0]["valid_to"] == "2024-01-01"
+        assert pd.isna(cand_a.iloc[1]["valid_to"])
+        # CandB: 2023 (valid_to=2025), 2025 (valid_to=None)
+        cand_b = result[result["vin_candidateid"] == "cand-2"].sort_values("valid_from")
+        assert cand_b.iloc[0]["valid_to"] == "2025-01-01"
+        assert pd.isna(cand_b.iloc[1]["valid_to"])
 
 
 class TestTransformCandidates:
@@ -172,9 +311,9 @@ class TestTransformCandidates:
                 "Discovery",
             ],
             "new_2023currentrdstage": ["Phase I", None, None],
-            "vin_currentrdstage": ["Phase II", "Phase III", None],
+            # FK GUID column for 2025 RD stage (resolved via lookup_tables)
+            "_vin_currentrndstage_value": ["guid-1", "guid-2", None],
             "new_includeinpipeline": [100000000.0, 100000002.0, 100000001.0],
-            "_vin_currentrndstage_value": ["ignored", "ignored", None],
             "_vin_captype_value": [
                 "c1746ad3-93d1-f011-bbd3-00224892cefa",
                 "545d63d9-93d1-f011-bbd3-00224892cefa",
@@ -204,6 +343,17 @@ class TestTransformCandidates:
         if overrides:
             data.update(overrides)
         return pd.DataFrame(data)
+
+    def _make_lookup_tables(self):
+        """Create lookup_tables dict with vin_rdstageproducts."""
+        return {
+            "vin_rdstageproducts": pd.DataFrame(
+                {
+                    "vin_rdstageproductid": ["guid-1", "guid-2"],
+                    "vin_name": ["Phase II - Drugs", "Phase III - Vaccines"],
+                }
+            ),
+        }
 
     def _make_option_sets(self):
         """Create option sets dict for candidates."""
@@ -276,7 +426,8 @@ class TestTransformCandidates:
 
     def test_drops_metadata_columns(self):
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         for col in [
             "row_id",
             "json_response",
@@ -293,7 +444,8 @@ class TestTransformCandidates:
 
     def test_drops_empty_columns_preserving_valid_to(self):
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         assert "valid_to" in result.columns
         assert "valid_from" in result.columns
 
@@ -303,7 +455,8 @@ class TestTransformCandidates:
                 "new_includeinpipeline": [100000000.0, 100000002.0, 100000000.0],
             }
         )
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         products = list(result["product"].unique())
         assert "Drugs" in products
         assert "Diagnostics" in products
@@ -319,7 +472,8 @@ class TestTransformCandidates:
                 "new_includeinpipeline": [100000000.0, 100000002.0, 100000000.0],
             }
         )
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         stages = result["new_currentrdstage"].dropna().unique()
         assert "Late development" in stages
         assert "Phase III" in stages
@@ -331,11 +485,12 @@ class TestTransformCandidates:
             overrides={
                 "new_2024currentrdstage": ["Phase I - Biologics", None, None],
                 "new_2023currentrdstage": [None, None, None],
-                "vin_currentrdstage": [None, None, None],
+                "_vin_currentrndstage_value": [None, None, None],
                 "new_includeinpipeline": [100000000.0, 100000002.0, 100000001.0],
             }
         )
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         cand_a = result[result["candidate_name"] == "Candidate A"]
         stages = cand_a["new_currentrdstage"].dropna().tolist()
         for stage in stages:
@@ -343,7 +498,8 @@ class TestTransformCandidates:
 
     def test_standardizes_pressure_types(self):
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         pressures = list(result["pressuretype"].dropna().unique())
         assert "Negative pressure" in pressures
         assert "N/A" in pressures
@@ -352,7 +508,8 @@ class TestTransformCandidates:
 
     def test_filters_by_includeinpipeline(self):
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         # Candidate C has includeinpipeline=100000001 -> filtered out
         # Candidates A and B have 100000000 and 100000002 -> kept
         candidate_names = result["candidate_name"].unique()
@@ -363,18 +520,21 @@ class TestTransformCandidates:
     def test_temporal_expansion_produces_new_currentrdstage(self):
         """Transform produces new_currentrdstage base column from SCD2 expansion."""
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         assert "new_currentrdstage" in result.columns
         assert len(result) >= 2
 
     def test_temporal_source_columns_removed_after_transform(self):
         """Year-specific temporal columns are consumed and not in final output."""
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         for col in [
             "new_2023currentrdstage",
             "new_2024currentrdstage",
-            "vin_currentrdstage",
+            "_vin_currentrndstage_value",
+            "_resolved_rdstage_2025",
             "new_rdstage2021",
         ]:
             assert col not in result.columns
@@ -382,13 +542,15 @@ class TestTransformCandidates:
     def test_captype_value_preserved(self):
         """_vin_captype_value is renamed to captype_value and preserved."""
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         assert "captype_value" in result.columns
         assert "_vin_captype_value" not in result.columns
 
     def test_renames_columns(self):
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         assert "candidate_name" in result.columns
         assert "vin_name" not in result.columns
         assert "product" in result.columns
@@ -398,28 +560,32 @@ class TestTransformCandidates:
 
     def test_approval_status_consolidation(self):
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         # 862890001 (Adopted) -> 909670000 (Approved)
         cand_a = result[result["candidate_name"] == "Candidate A"]
         assert (cand_a["approvalstatus"] == 909670000).all()
 
     def test_approving_authority_consolidation(self):
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         # 909670002 (SRA Other) -> 909670001 (SRA)
         cand_a = result[result["candidate_name"] == "Candidate A"]
         assert (cand_a["approvingauthority"] == 909670001).all()
 
     def test_indication_type_consolidation(self):
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         # 100000003 -> 100000001
         cand_a = result[result["candidate_name"] == "Candidate A"]
         assert (cand_a["indicationtype"] == 100000001).all()
 
     def test_preclinical_results_consolidation(self):
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         # 909670004 -> 909670002
         cand_a = result[result["candidate_name"] == "Candidate A"]
         assert (cand_a["preclinicalresultsstatus"] == 909670002.0).all()
@@ -427,7 +593,10 @@ class TestTransformCandidates:
     def test_option_set_dedup_indication_type(self):
         df = self._make_input_df()
         option_sets = self._make_option_sets()
-        _, cleaned = transform_candidates(df, option_sets=option_sets)
+        lookup = self._make_lookup_tables()
+        _, cleaned = transform_candidates(
+            df, option_sets=option_sets, lookup_tables=lookup
+        )
         assert "_optionset_new_indicationtype" in cleaned
         os_df = cleaned["_optionset_new_indicationtype"]
         assert len(os_df) == 3  # 6 -> 3 (remove duplicates at 100000003-5)
@@ -435,7 +604,10 @@ class TestTransformCandidates:
     def test_option_set_dedup_preclinical_results(self):
         df = self._make_input_df()
         option_sets = self._make_option_sets()
-        _, cleaned = transform_candidates(df, option_sets=option_sets)
+        lookup = self._make_lookup_tables()
+        _, cleaned = transform_candidates(
+            df, option_sets=option_sets, lookup_tables=lookup
+        )
         assert "_optionset_vin_preclinicalresultsstatus" in cleaned
         os_df = cleaned["_optionset_vin_preclinicalresultsstatus"]
         assert len(os_df) == 4  # 5 -> 4 (remove Unavailable/unknown)
@@ -443,7 +615,10 @@ class TestTransformCandidates:
     def test_option_set_dedup_approval_status(self):
         df = self._make_input_df()
         option_sets = self._make_option_sets()
-        _, cleaned = transform_candidates(df, option_sets=option_sets)
+        lookup = self._make_lookup_tables()
+        _, cleaned = transform_candidates(
+            df, option_sets=option_sets, lookup_tables=lookup
+        )
         assert "_optionset_vin_approvalstatus" in cleaned
         os_df = cleaned["_optionset_vin_approvalstatus"]
         assert len(os_df) == 6  # 7 -> 6 (remove Adopted)
@@ -451,25 +626,41 @@ class TestTransformCandidates:
     def test_option_set_dedup_approving_authority(self):
         df = self._make_input_df()
         option_sets = self._make_option_sets()
-        _, cleaned = transform_candidates(df, option_sets=option_sets)
+        lookup = self._make_lookup_tables()
+        _, cleaned = transform_candidates(
+            df, option_sets=option_sets, lookup_tables=lookup
+        )
         assert "_optionset_vin_approvingauthority" in cleaned
         os_df = cleaned["_optionset_vin_approvingauthority"]
         assert len(os_df) == 3  # 4 -> 3 (remove SRA Other)
 
     def test_returns_tuple(self):
         df = self._make_input_df()
-        result, cleaned = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, cleaned = transform_candidates(df, lookup_tables=lookup)
         assert isinstance(result, pd.DataFrame)
         assert isinstance(cleaned, dict)
 
     def test_does_not_modify_original(self):
         df = self._make_input_df()
         original_columns = list(df.columns)
-        transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        transform_candidates(df, lookup_tables=lookup)
         assert list(df.columns) == original_columns
 
     def test_works_when_option_sets_is_none(self):
         df = self._make_input_df()
-        result, cleaned = transform_candidates(df, option_sets=None)
+        lookup = self._make_lookup_tables()
+        result, cleaned = transform_candidates(
+            df, option_sets=None, lookup_tables=lookup
+        )
         assert isinstance(result, pd.DataFrame)
         assert len(cleaned) == 0
+
+    def test_works_without_lookup_tables(self):
+        """Transform still works when lookup_tables is None (no FK resolution)."""
+        df = self._make_input_df()
+        result, cleaned = transform_candidates(df, lookup_tables=None)
+        assert isinstance(result, pd.DataFrame)
+        # _vin_currentrndstage_value should be dropped (in _COLUMNS_TO_DROP)
+        assert "_vin_currentrndstage_value" not in result.columns

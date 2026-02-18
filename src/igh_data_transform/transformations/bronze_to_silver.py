@@ -49,6 +49,7 @@ TABLE_REGISTRY: dict[str, dict] = {
             "_optionset_vin_approvalstatus",
             "_optionset_vin_approvingauthority",
         ],
+        "lookup_tables": ["vin_rdstageproducts"],
     },
     "vin_clinicaltrials": {
         "transformer": transform_clinical_trials,
@@ -107,7 +108,7 @@ def transform_table(
     return df
 
 
-def _load_option_sets(
+def _load_tables(
     bronze_conn: sqlite3.Connection,
     option_set_names: list[str],
 ) -> dict[str, pd.DataFrame]:
@@ -181,11 +182,13 @@ def bronze_to_silver(bronze_db_path: str, silver_db_path: str) -> bool:
             if table_name in TABLE_REGISTRY:
                 # Dispatch to table-specific transformer
                 entry = TABLE_REGISTRY[table_name]
-                option_sets = _load_option_sets(bronze_conn, entry["option_sets"])
-                df_transformed, cleaned_os = entry["transformer"](
-                    df,
-                    option_sets=option_sets,
-                )
+                option_sets = _load_tables(bronze_conn, entry["option_sets"])
+                kwargs = {"option_sets": option_sets}
+                if "lookup_tables" in entry:
+                    kwargs["lookup_tables"] = _load_tables(
+                        bronze_conn, entry["lookup_tables"]
+                    )
+                df_transformed, cleaned_os = entry["transformer"](df, **kwargs)
                 all_cleaned_option_sets.update(cleaned_os)
 
                 # Cast optionset code columns to nullable integer

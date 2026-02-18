@@ -327,6 +327,61 @@ class TestRegistryDispatch:
         assert "valid_to" in df.columns
         assert "col_a" in df.columns
 
+    def test_lookup_tables_loaded_and_passed_for_candidates(self, tmp_path: Path):
+        """lookup_tables (vin_rdstageproducts) are loaded and passed to candidates."""
+        bronze_db = tmp_path / "bronze.db"
+        silver_db = tmp_path / "silver.db"
+        conn = sqlite3.connect(str(bronze_db))
+
+        # Create minimal vin_candidates table
+        conn.execute("""
+            CREATE TABLE vin_candidates (
+                vin_candidateid TEXT,
+                vin_name TEXT,
+                vin_product TEXT,
+                new_2024currentrdstage TEXT,
+                _vin_currentrndstage_value TEXT,
+                new_includeinpipeline REAL,
+                vin_developmentstatus INTEGER,
+                valid_from TEXT,
+                valid_to TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO vin_candidates VALUES
+                ('cand-1', 'CandA', 'Drug', 'Phase I',
+                 'guid-1', 100000000.0, 909670000, '2025-01-01', NULL)
+        """)
+
+        # Create the lookup table (vin_rdstageproducts)
+        conn.execute("""
+            CREATE TABLE vin_rdstageproducts (
+                vin_rdstageproductid TEXT,
+                vin_name TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO vin_rdstageproducts VALUES
+                ('guid-1', 'Phase III - Drugs')
+        """)
+
+        conn.commit()
+        conn.close()
+
+        bronze_to_silver(str(bronze_db), str(silver_db))
+
+        conn = sqlite3.connect(str(silver_db))
+        df = pd.read_sql_query("SELECT * FROM vin_candidates", conn)
+        conn.close()
+
+        # Should have resolved 2025 RD stage from FK
+        rows_2025 = df[df["valid_from"] == "2025-01-01"]
+        assert len(rows_2025) == 1
+        assert rows_2025["new_currentrdstage"].iloc[0] == "Phase III"
+        # FK column should be dropped
+        assert "_vin_currentrndstage_value" not in df.columns
+        assert "_resolved_rdstage_2025" not in df.columns
+
     def test_option_sets_loaded_and_passed_to_transformer(self, tmp_path: Path):
         """Option sets from Bronze are loaded and passed to transformers."""
         bronze_db = tmp_path / "bronze.db"
