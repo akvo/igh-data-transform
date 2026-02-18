@@ -11,6 +11,7 @@ from igh_data_transform.transformations.cleanup import (
     rename_columns,
     replace_values,
 )
+from igh_data_transform.transformations.developers import transform_developers
 from igh_data_transform.transformations.clinical_trials import transform_clinical_trials
 from igh_data_transform.transformations.diseases import transform_diseases
 from igh_data_transform.transformations.priorities import transform_priorities
@@ -62,6 +63,11 @@ TABLE_REGISTRY: dict[str, dict] = {
     "vin_rdpriorities": {
         "transformer": transform_priorities,
         "option_sets": [],
+    },
+    "vin_developers": {
+        "transformer": transform_developers,
+        "option_sets": [],
+        "lookup_tables": ["accounts", "vin_countries"],
     },
 }
 

@@ -286,6 +286,7 @@ class TestRegistryDispatch:
         assert "vin_clinicaltrials" in TABLE_REGISTRY
         assert "vin_diseases" in TABLE_REGISTRY
         assert "vin_rdpriorities" in TABLE_REGISTRY
+        assert "vin_developers" in TABLE_REGISTRY
 
     def test_registered_table_dispatches_to_transformer(self, tmp_path: Path):
         """Registered table uses its specific transformer."""
@@ -326,6 +327,83 @@ class TestRegistryDispatch:
         # Preserves valid_to
         assert "valid_to" in df.columns
         assert "col_a" in df.columns
+
+    def test_lookup_tables_loaded_and_passed_for_developers(self, tmp_path: Path):
+        """lookup_tables (accounts, vin_countries) are loaded and passed to developers."""
+        bronze_db = tmp_path / "bronze.db"
+        silver_db = tmp_path / "silver.db"
+        conn = sqlite3.connect(str(bronze_db))
+
+        # Create minimal vin_developers table
+        conn.execute("""
+            CREATE TABLE vin_developers (
+                vin_developerid TEXT,
+                vin_name TEXT,
+                _vin_cap_value TEXT,
+                _vin_developer_value TEXT,
+                statecode INTEGER,
+                modifiedon TEXT,
+                createdon TEXT,
+                valid_from TEXT,
+                valid_to TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO vin_developers VALUES
+                ('dev-1', 'ProductA - Acme', 'cand-1', 'acc-1',
+                 0, '2025-06-01', '2025-01-01', '2025-01-01', NULL)
+        """)
+
+        # Create accounts lookup table
+        conn.execute("""
+            CREATE TABLE accounts (
+                accountid TEXT,
+                name TEXT,
+                vin_organisationtype TEXT,
+                address1_country TEXT,
+                valid_from TEXT,
+                valid_to TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO accounts VALUES
+                ('acc-1', 'Acme Corp', 'For Profit SME', 'France',
+                 '2025-01-01', NULL)
+        """)
+
+        # Create vin_countries lookup table
+        conn.execute("""
+            CREATE TABLE vin_countries (
+                vin_countryno INTEGER,
+                vin_name TEXT,
+                valid_from TEXT,
+                valid_to TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO vin_countries VALUES
+                (1, 'France', '2025-01-01', NULL)
+        """)
+
+        conn.commit()
+        conn.close()
+
+        bronze_to_silver(str(bronze_db), str(silver_db))
+
+        conn = sqlite3.connect(str(silver_db))
+        df = pd.read_sql_query("SELECT * FROM vin_developers", conn)
+        conn.close()
+
+        # Should have enriched columns
+        assert "org_name" in df.columns
+        assert "country_name" in df.columns
+        assert "org_type" in df.columns
+        assert df["org_name"].iloc[0] == "Acme Corp"
+        assert df["country_name"].iloc[0] == "France"
+        assert df["org_type"].iloc[0] == "For Profit SME"
+        # Renamed columns
+        assert "developerid" in df.columns
+        assert "vin_developerid" not in df.columns
 
     def test_lookup_tables_loaded_and_passed_for_candidates(self, tmp_path: Path):
         """lookup_tables (vin_rdstageproducts) are loaded and passed to candidates."""

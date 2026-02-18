@@ -352,9 +352,7 @@ def _expand_temporal_rows(df: pd.DataFrame) -> pd.DataFrame:
     df_expand = df_expand.sort_values(by=["vin_candidateid", "valid_from"])
 
     # Per-candidate valid_to = next row's valid_from (None for last)
-    df_expand["valid_to"] = df_expand.groupby("vin_candidateid")[
-        "valid_from"
-    ].shift(-1)
+    df_expand["valid_to"] = df_expand.groupby("vin_candidateid")["valid_from"].shift(-1)
 
     # Drop consumed columns
     cols_to_drop = _TEMPORAL_SOURCE_COLS + ["_resolved_rdstage_2025"]
