@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from igh_data_transform.transformations.bronze_to_silver import (
+    OPTIONSET_RENAMES,
     TABLE_REGISTRY,
     bronze_to_silver,
     transform_table,
@@ -161,7 +162,9 @@ class TestBronzeToSilver:
 
         # Verify Silver database contents
         conn = sqlite3.connect(str(silver_db_path))
-        tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        tables = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
         table_names = [t[0] for t in tables]
 
         assert "some_table" in table_names
@@ -219,7 +222,9 @@ class TestBronzeToSilver:
 
         assert silver_db.exists()
 
-    def test_overwrites_existing_silver_tables(self, bronze_db: Path, silver_db_path: Path):
+    def test_overwrites_existing_silver_tables(
+        self, bronze_db: Path, silver_db_path: Path
+    ):
         """Test that existing Silver tables are replaced."""
         # Create Silver with different data
         conn = sqlite3.connect(str(silver_db_path))
@@ -363,11 +368,9 @@ class TestRegistryDispatch:
 
         bronze_to_silver(str(bronze_db), str(silver_db))
 
-        # Verify the cleaned option set was written to Silver
+        # Verify the cleaned option set was written to Silver with renamed table
         conn = sqlite3.connect(str(silver_db))
-        os_df = pd.read_sql_query(
-            "SELECT * FROM _optionset_new_globalhealtharea", conn
-        )
+        os_df = pd.read_sql_query("SELECT * FROM _optionset_globalhealtharea", conn)
         conn.close()
 
         # Diseases transformer renames "Sexual & reproductive health" -> "Womens Health"
@@ -447,13 +450,96 @@ class TestRegistryDispatch:
 
         bronze_to_silver(str(bronze_db), str(silver_db))
 
-        # The cleaned version should be in Silver (not the raw copy)
+        # The cleaned version should be in Silver with renamed table
         conn = sqlite3.connect(str(silver_db))
-        os_df = pd.read_sql_query(
-            "SELECT * FROM _optionset_new_globalhealtharea", conn
-        )
+        os_df = pd.read_sql_query("SELECT * FROM _optionset_globalhealtharea", conn)
         conn.close()
 
         labels = list(os_df["label"])
         assert "Womens Health" in labels
         assert "Sexual & reproductive health" not in labels
+
+
+class TestOptionsetRenaming:
+    """Tests for optionset table renaming in Bronze to Silver."""
+
+    def test_optionset_renames_mapping_exists(self):
+        """OPTIONSET_RENAMES contains expected entries."""
+        assert "_optionset_vin_approvalstatus" in OPTIONSET_RENAMES
+        assert (
+            OPTIONSET_RENAMES["_optionset_vin_approvalstatus"]
+            == "_optionset_approvalstatus"
+        )
+        assert "_optionset_new_globalhealtharea" in OPTIONSET_RENAMES
+        assert (
+            OPTIONSET_RENAMES["_optionset_new_globalhealtharea"]
+            == "_optionset_globalhealtharea"
+        )
+
+    def test_renamed_optionset_tables_appear_in_silver(self, tmp_path: Path):
+        """Optionset tables are renamed when written to Silver."""
+        bronze_db = tmp_path / "bronze.db"
+        silver_db = tmp_path / "silver.db"
+        conn = sqlite3.connect(str(bronze_db))
+
+        # Create optionset table with bronze name
+        conn.execute("""
+            CREATE TABLE _optionset_vin_developmentstatus (
+                code INTEGER,
+                label TEXT,
+                first_seen TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO _optionset_vin_developmentstatus VALUES
+                (909670000, 'Active', '2026-01-09')
+        """)
+        conn.commit()
+        conn.close()
+
+        bronze_to_silver(str(bronze_db), str(silver_db))
+
+        conn = sqlite3.connect(str(silver_db))
+        tables = [
+            r[0]
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        ]
+        conn.close()
+
+        # Should have renamed table, not original
+        assert "_optionset_developmentstatus" in tables
+        assert "_optionset_vin_developmentstatus" not in tables
+
+    def test_unrenamed_optionset_tables_kept_as_is(self, tmp_path: Path):
+        """Optionset tables not in OPTIONSET_RENAMES are copied with original name."""
+        bronze_db = tmp_path / "bronze.db"
+        silver_db = tmp_path / "silver.db"
+        conn = sqlite3.connect(str(bronze_db))
+
+        conn.execute("""
+            CREATE TABLE _optionset_unknown_field (
+                code INTEGER,
+                label TEXT,
+                first_seen TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO _optionset_unknown_field VALUES (1, 'Label', '2026-01-09')
+        """)
+        conn.commit()
+        conn.close()
+
+        bronze_to_silver(str(bronze_db), str(silver_db))
+
+        conn = sqlite3.connect(str(silver_db))
+        tables = [
+            r[0]
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        ]
+        conn.close()
+
+        assert "_optionset_unknown_field" in tables

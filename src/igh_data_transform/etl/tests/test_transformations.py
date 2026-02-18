@@ -81,41 +81,41 @@ class TestExpressionParsing:
     def test_parse_case_when_multi_branch_first_match(self):
         """Multi-branch CASE WHEN returns first matching THEN value."""
         expr = (
-            "CASE WHEN _vin_captype_value = 'c1746ad3-93d1-f011-bbd3-00224892cefa' THEN 'Candidate' "
-            "WHEN _vin_captype_value = '545d63d9-93d1-f011-bbd3-00224892cefa' THEN 'Product' "
+            "CASE WHEN captype_value = 'c1746ad3-93d1-f011-bbd3-00224892cefa' THEN 'Candidate' "
+            "WHEN captype_value = '545d63d9-93d1-f011-bbd3-00224892cefa' THEN 'Product' "
             "ELSE 'Other' END"
         )
-        row = {"_vin_captype_value": "c1746ad3-93d1-f011-bbd3-00224892cefa"}
+        row = {"captype_value": "c1746ad3-93d1-f011-bbd3-00224892cefa"}
         assert parse_case_when(expr, row) == "Candidate"
 
     def test_parse_case_when_multi_branch_second_match(self):
         """Multi-branch CASE WHEN returns second matching THEN value."""
         expr = (
-            "CASE WHEN _vin_captype_value = 'c1746ad3-93d1-f011-bbd3-00224892cefa' THEN 'Candidate' "
-            "WHEN _vin_captype_value = '545d63d9-93d1-f011-bbd3-00224892cefa' THEN 'Product' "
+            "CASE WHEN captype_value = 'c1746ad3-93d1-f011-bbd3-00224892cefa' THEN 'Candidate' "
+            "WHEN captype_value = '545d63d9-93d1-f011-bbd3-00224892cefa' THEN 'Product' "
             "ELSE 'Other' END"
         )
-        row = {"_vin_captype_value": "545d63d9-93d1-f011-bbd3-00224892cefa"}
+        row = {"captype_value": "545d63d9-93d1-f011-bbd3-00224892cefa"}
         assert parse_case_when(expr, row) == "Product"
 
     def test_parse_case_when_multi_branch_else(self):
         """Multi-branch CASE WHEN returns ELSE when no branch matches."""
         expr = (
-            "CASE WHEN _vin_captype_value = 'c1746ad3-93d1-f011-bbd3-00224892cefa' THEN 'Candidate' "
-            "WHEN _vin_captype_value = '545d63d9-93d1-f011-bbd3-00224892cefa' THEN 'Product' "
+            "CASE WHEN captype_value = 'c1746ad3-93d1-f011-bbd3-00224892cefa' THEN 'Candidate' "
+            "WHEN captype_value = '545d63d9-93d1-f011-bbd3-00224892cefa' THEN 'Product' "
             "ELSE 'Other' END"
         )
-        row = {"_vin_captype_value": "some-other-guid"}
+        row = {"captype_value": "some-other-guid"}
         assert parse_case_when(expr, row) == "Other"
 
     def test_parse_case_when_multi_branch_null(self):
         """Multi-branch CASE WHEN returns ELSE when column is null."""
         expr = (
-            "CASE WHEN _vin_captype_value = 'c1746ad3-93d1-f011-bbd3-00224892cefa' THEN 'Candidate' "
-            "WHEN _vin_captype_value = '545d63d9-93d1-f011-bbd3-00224892cefa' THEN 'Product' "
+            "CASE WHEN captype_value = 'c1746ad3-93d1-f011-bbd3-00224892cefa' THEN 'Candidate' "
+            "WHEN captype_value = '545d63d9-93d1-f011-bbd3-00224892cefa' THEN 'Product' "
             "ELSE 'Other' END"
         )
-        row = {"_vin_captype_value": None}
+        row = {"captype_value": None}
         assert parse_case_when(expr, row) == "Other"
 
     def test_parse_optionset(self, transformer):
@@ -156,10 +156,10 @@ class TestDimensionKeyCaching:
     def test_cache_dimension_keys(self, transformer):
         """Cache stores lookup values to keys."""
         data = [
-            {"candidate_key": 1, "vin_candidateid": "abc-123"},
-            {"candidate_key": 2, "vin_candidateid": "def-456"},
+            {"candidate_key": 1, "candidateid": "abc-123"},
+            {"candidate_key": 2, "candidateid": "def-456"},
         ]
-        transformer.cache_dimension_keys("dim_candidate_core", data, "candidate_key", "vin_candidateid")
+        transformer.cache_dimension_keys("dim_candidate_core", data, "candidate_key", "candidateid")
 
         assert transformer.lookup_dimension_key("dim_candidate_core", "abc-123") == 1
         assert transformer.lookup_dimension_key("dim_candidate_core", "def-456") == 2
@@ -262,7 +262,7 @@ class TestOptionsetDimension:
         """Create transformer with mocked extractor containing optionset data."""
         mock_extractor = MagicMock()
         mock_extractor._optionset_cache = {
-            "new_agespecific": {
+            "agespecific": {
                 909670000: "Neonates (<1 month)",
                 909670001: "Infants (<1 year)",
                 909670002: "Children (1-9 years)",
@@ -275,7 +275,7 @@ class TestOptionsetDimension:
         config = {
             "_source_table": None,
             "_pk": "age_group_key",
-            "_special": {"from_optionset": True, "optionset_name": "new_agespecific"},
+            "_special": {"from_optionset": True, "optionset_name": "agespecific"},
             "age_group_name": "OPTIONSET_LABEL",
             "option_code": "OPTIONSET_CODE",
         }

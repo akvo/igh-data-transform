@@ -20,28 +20,28 @@ class TestDimensionFKLookups:
             "disease-guid-1": 10,
             "disease-guid-2": 20,
         }
-        # Mock extraction of vin_rdpriorities
+        # Mock extraction of vin_rdpriorities (silver column names)
         mock_extractor.extract_table.return_value = [
             {
-                "vin_rdpriorityid": "priority-1",
-                "vin_name": "Priority A",
-                "new_indication": "Malaria",
-                "new_intendeduse": "Treatment",
-                "_vin_disease_value": "disease-guid-1",
+                "rdpriorityid": "priority-1",
+                "name": "Priority A",
+                "indication": "Malaria",
+                "intendeduse": "Treatment",
+                "diseasevalue": "disease-guid-1",
             },
             {
-                "vin_rdpriorityid": "priority-2",
-                "vin_name": "Priority B",
-                "new_indication": None,
-                "new_intendeduse": None,
-                "_vin_disease_value": "disease-guid-2",
+                "rdpriorityid": "priority-2",
+                "name": "Priority B",
+                "indication": None,
+                "intendeduse": None,
+                "diseasevalue": "disease-guid-2",
             },
             {
-                "vin_rdpriorityid": "priority-3",
-                "vin_name": "Priority C",
-                "new_indication": None,
-                "new_intendeduse": None,
-                "_vin_disease_value": "unknown-guid",
+                "rdpriorityid": "priority-3",
+                "name": "Priority C",
+                "indication": None,
+                "intendeduse": None,
+                "diseasevalue": "unknown-guid",
             },
         ]
         return t
@@ -111,4 +111,43 @@ class TestCandidateCrossRef:
         """FK_VIA_CANDIDATE returns None when cross-ref value is None."""
         new_row = {"candidate_key": 3}
         result = transformer._resolve_fk_via_candidate("FK_VIA_CANDIDATE:disease_key", new_row)
+        assert result is None
+
+
+class TestCompositeFKResolution:
+    """Test composite FK resolution using dimension config expressions."""
+
+    @pytest.fixture
+    def transformer(self):
+        """Create transformer with tech dimension composite cache."""
+        mock_extractor = MagicMock()
+        mock_extractor.lookup_optionset = MagicMock(return_value=None)
+        t = Transformer(mock_extractor)
+        # Pre-populate composite cache for dim_candidate_tech
+        t._composite_caches["dim_candidate_tech"] = {
+            ("Vaccine",): 1,
+            ("Drug",): 2,
+            ("Unknown",): 3,
+        }
+        return t
+
+    def test_composite_fk_resolves_from_dimension_config(self, transformer):
+        """COMPOSITE FK evaluates dim's own expressions against the source row."""
+        row = {"technologytype": "Vaccine"}
+        fk_expr = "FK:dim_candidate_tech.COMPOSITE"
+        result = transformer._resolve_fk(fk_expr, row, "")
+        assert result == 1
+
+    def test_composite_fk_coalesce_defaults(self, transformer):
+        """COMPOSITE FK applies COALESCE default when source column is None."""
+        row = {"technologytype": None}
+        fk_expr = "FK:dim_candidate_tech.COMPOSITE"
+        result = transformer._resolve_fk(fk_expr, row, "")
+        assert result == 3  # COALESCE(technologytype, 'Unknown') -> 'Unknown'
+
+    def test_composite_fk_returns_none_for_unknown_combo(self, transformer):
+        """COMPOSITE FK returns None when key combo not in cache."""
+        row = {"technologytype": "NovelType"}
+        fk_expr = "FK:dim_candidate_tech.COMPOSITE"
+        result = transformer._resolve_fk(fk_expr, row, "")
         assert result is None

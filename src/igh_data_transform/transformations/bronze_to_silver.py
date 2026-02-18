@@ -16,6 +16,29 @@ from igh_data_transform.transformations.diseases import transform_diseases
 from igh_data_transform.transformations.priorities import transform_priorities
 from igh_data_transform.utils.database import DatabaseManager
 
+# Optionset tables renamed to match silver column names.
+# Derived from _COLUMN_RENAMES in each table-specific transformer.
+OPTIONSET_RENAMES = {
+    # From candidates.py
+    "_optionset_vin_approvalstatus": "_optionset_approvalstatus",
+    "_optionset_vin_developmentstatus": "_optionset_developmentstatus",
+    "_optionset_vin_whoprequalification": "_optionset_whoprequalification",
+    "_optionset_vin_nationalregulatoryauthorityapprovalstatus": "_optionset_NRAapprovalstatus",
+    "_optionset_new_indicationtype": "_optionset_indicationtype",
+    "_optionset_vin_preclinicalresultsstatus": "_optionset_preclinicalresultsstatus",
+    "_optionset_new_agespecific": "_optionset_agespecific",
+    "_optionset_vin_approvingauthority": "_optionset_approvingauthority",
+    # From clinical_trials.py
+    "_optionset_vin_ctstatus": "_optionset_ctstatus",
+    # From diseases.py
+    "_optionset_new_globalhealtharea": "_optionset_globalhealtharea",
+}
+
+# Silver column names that store optionset codes (derived from OPTIONSET_RENAMES)
+_SILVER_OPTIONSET_COLUMNS = {
+    v[len("_optionset_") :] for v in OPTIONSET_RENAMES.values()
+}
+
 # Registry mapping table names to their specific transformer and required option sets.
 TABLE_REGISTRY: dict[str, dict] = {
     "vin_candidates": {
@@ -160,9 +183,15 @@ def bronze_to_silver(bronze_db_path: str, silver_db_path: str) -> bool:
                 entry = TABLE_REGISTRY[table_name]
                 option_sets = _load_option_sets(bronze_conn, entry["option_sets"])
                 df_transformed, cleaned_os = entry["transformer"](
-                    df, option_sets=option_sets,
+                    df,
+                    option_sets=option_sets,
                 )
                 all_cleaned_option_sets.update(cleaned_os)
+
+                # Cast optionset code columns to nullable integer
+                for col in df_transformed.columns:
+                    if col in _SILVER_OPTIONSET_COLUMNS:
+                        df_transformed[col] = df_transformed[col].astype("Int64")
             else:
                 # Generic cleanup
                 df_transformed = transform_table(
@@ -171,11 +200,14 @@ def bronze_to_silver(bronze_db_path: str, silver_db_path: str) -> bool:
                 )
 
             # Write transformed table to Silver
-            df_transformed.to_sql(table_name, silver_conn, if_exists="replace", index=False)
+            df_transformed.to_sql(
+                table_name, silver_conn, if_exists="replace", index=False
+            )
             print(f"  Wrote {len(df_transformed)} rows to {table_name}")
 
-        # Process option set tables
+        # Process option set tables (with renames to match silver column names)
         for os_table in option_set_tables:
+            silver_name = OPTIONSET_RENAMES.get(os_table, os_table)
             if os_table in all_cleaned_option_sets:
                 # Write the cleaned version from the transformer
                 df_os = all_cleaned_option_sets[os_table]
@@ -183,12 +215,14 @@ def bronze_to_silver(bronze_db_path: str, silver_db_path: str) -> bool:
                 # Copy as-is from Bronze
                 df_os = pd.read_sql_query(f"SELECT * FROM {os_table}", bronze_conn)  # noqa: S608
 
-            df_os.to_sql(os_table, silver_conn, if_exists="replace", index=False)
-            print(f"  Wrote {len(df_os)} rows to {os_table}")
+            df_os.to_sql(silver_name, silver_conn, if_exists="replace", index=False)
+            print(f"  Wrote {len(df_os)} rows to {silver_name}")
 
         bronze_conn.close()
         silver_conn.close()
-        print(f"Bronze to Silver transformation complete: {len(tables)} tables processed")
+        print(
+            f"Bronze to Silver transformation complete: {len(tables)} tables processed"
+        )
         return True
 
     except Exception as e:

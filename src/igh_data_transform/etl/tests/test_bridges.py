@@ -26,7 +26,7 @@ class TestDelimitedBridge:
         """Delimited bridge produces correct column name for developer_key."""
         transformer._dim_caches["dim_developer"] = {"Dev A": 10, "Dev B": 11}
         transformer.extractor.extract_table.return_value = [
-            {"vin_candidateid": "cand-1", "vin_developersaggregated": "Dev A; Dev B"},
+            {"candidateid": "cand-1", "developersaggregated": "Dev A; Dev B"},
         ]
 
         config = {
@@ -34,12 +34,12 @@ class TestDelimitedBridge:
             "_pk": None,
             "_special": {
                 "bridge_from_delimited": True,
-                "source_column": "vin_developersaggregated",
+                "source_column": "developersaggregated",
                 "delimiter": ";",
                 "dimension_table": "dim_developer",
                 "dimension_lookup_col": "developer_name",
             },
-            "candidate_key": "FK:dim_candidate_core.vin_candidateid|vin_candidateid",
+            "candidate_key": "FK:dim_candidate_core.candidateid|candidateid",
             "developer_key": "FK:dim_developer.developer_name|DELIMITED_VALUE",
         }
         special = config["_special"]
@@ -54,7 +54,7 @@ class TestDelimitedBridge:
         """Delimited bridge produces correct column name for funder_key."""
         transformer._dim_caches["dim_funder"] = {"Funder X": 20, "Funder Y": 21}
         transformer.extractor.extract_table.return_value = [
-            {"vin_candidateid": "cand-2", "vin_knownfundersaggregated": "Funder X; Funder Y"},
+            {"candidateid": "cand-2", "knownfundersaggregated": "Funder X; Funder Y"},
         ]
 
         config = {
@@ -62,12 +62,12 @@ class TestDelimitedBridge:
             "_pk": None,
             "_special": {
                 "bridge_from_delimited": True,
-                "source_column": "vin_knownfundersaggregated",
+                "source_column": "knownfundersaggregated",
                 "delimiter": ";",
                 "dimension_table": "dim_funder",
                 "dimension_lookup_col": "funder_name",
             },
-            "candidate_key": "FK:dim_candidate_core.vin_candidateid|vin_candidateid",
+            "candidate_key": "FK:dim_candidate_core.candidateid|candidateid",
             "funder_key": "FK:dim_funder.funder_name|DELIMITED_VALUE",
         }
         special = config["_special"]
@@ -82,7 +82,7 @@ class TestDelimitedBridge:
         """Delimited bridge skips values not found in dimension."""
         transformer._dim_caches["dim_funder"] = {"Funder X": 20}
         transformer.extractor.extract_table.return_value = [
-            {"vin_candidateid": "cand-1", "vin_knownfundersaggregated": "Funder X; Unknown Funder"},
+            {"candidateid": "cand-1", "knownfundersaggregated": "Funder X; Unknown Funder"},
         ]
 
         config = {
@@ -90,12 +90,12 @@ class TestDelimitedBridge:
             "_pk": None,
             "_special": {
                 "bridge_from_delimited": True,
-                "source_column": "vin_knownfundersaggregated",
+                "source_column": "knownfundersaggregated",
                 "delimiter": ";",
                 "dimension_table": "dim_funder",
                 "dimension_lookup_col": "funder_name",
             },
-            "candidate_key": "FK:dim_candidate_core.vin_candidateid|vin_candidateid",
+            "candidate_key": "FK:dim_candidate_core.candidateid|candidateid",
             "funder_key": "FK:dim_funder.funder_name|DELIMITED_VALUE",
         }
         special = config["_special"]
@@ -131,7 +131,7 @@ class TestStandardJunctionBridge:
         test_map["bridge_candidate_age_group"] = {
             "_source_table": "_junction_vin_candidates_new_agespecific",
             "_pk": None,
-            "candidate_key": "FK:dim_candidate_core.vin_candidateid|entity_id",
+            "candidate_key": "FK:dim_candidate_core.candidateid|entity_id",
             "age_group_key": "FK:dim_age_group.option_code|option_code",
         }
         monkeypatch.setattr(schema_map, "STAR_SCHEMA_MAP", test_map)
@@ -156,7 +156,7 @@ class TestStandardJunctionBridge:
         test_map["bridge_candidate_age_group"] = {
             "_source_table": "_junction_vin_candidates_new_agespecific",
             "_pk": None,
-            "candidate_key": "FK:dim_candidate_core.vin_candidateid|entity_id",
+            "candidate_key": "FK:dim_candidate_core.candidateid|entity_id",
             "age_group_key": "FK:dim_age_group.option_code|option_code",
         }
         monkeypatch.setattr(schema_map, "STAR_SCHEMA_MAP", test_map)
@@ -194,7 +194,7 @@ class TestTrialGeographyBridge:
             "_source_table": "vin_vin_clinicaltrial_vin_countryset",
             "_pk": None,
             "_special": {"trial_bridge": True},
-            "trial_key": "FK:fact_clinical_trial_event.vin_clinicaltrialid|vin_clinicaltrialid",
+            "trial_key": "FK:fact_clinical_trial_event.clinicaltrialid|vin_clinicaltrialid",
             "country_key": "FK:dim_geography.vin_countryid|vin_countryid",
         }
         monkeypatch.setattr(schema_map, "STAR_SCHEMA_MAP", test_map)

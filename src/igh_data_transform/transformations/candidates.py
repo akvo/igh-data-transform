@@ -9,6 +9,14 @@ from igh_data_transform.transformations.cleanup import (
     replace_values,
 )
 
+# Temporal source columns consumed by expansion
+_TEMPORAL_SOURCE_COLS = [
+    "new_rdstage2021",
+    "new_2023currentrdstage",
+    "new_2024currentrdstage",
+    "vin_currentrdstage",
+]
+
 _COLUMNS_TO_DROP = [
     "row_id",
     "new_potentialforacceleratedorconditionalregulator",
@@ -35,13 +43,11 @@ _COLUMNS_TO_DROP = [
     "new_durationofaction",
     "new_reviewstatus",
     "vin_fdapregnancylabelingpregnancyrisksummary",
-    "_vin_captype_value",
     "new_regionofregistration",
     "new_estimateddateofregulatoryfiling",
     "vin_regionspecificityaggregated",
     "vin_sbereviewdate",
     "new_2023includeinevgendatabase",
-    "vin_currentrdstage",
     "vin_evgenreviewcompleted",
     "timezoneruleversionnumber",
     "new_testformat",
@@ -197,7 +203,7 @@ _COLUMN_RENAMES = {
     "vin_whoprequalification": "whoprequalification",
     "new_2024developersaggregated": "2024developersaggregated",
     "vin_healthcarefacilitylevel": "healthcarefacilitylevel",
-    "new_2023currentrdstage": "2023currentrdstage",
+    "_vin_captype_value": "captype_value",
     "_vin_mainproduct_value": "mainproduct_value",
     "_vin_subproduct_value": "subproduct_value",
     "_vin_secondarydisease_value": "secondarydisease_value",
@@ -209,7 +215,6 @@ _COLUMN_RENAMES = {
     "vin_japanesemhlwapprovaldate": "japanesemhlwapprovaldate",
     "vin_developmentstatus": "developmentstatus",
     "vin_snakefamily": "snakefamily",
-    "new_2024currentrdstage": "2024rdstage",
     "vin_otherstringentregulatoryauthoritydate": "otherSRAdate",
     "vin_nationalregulatoryauthorityapprovalstatus": "NRAapprovalstatus",
     "new_2024developmentstatus": "2024developmentstatus",
@@ -291,50 +296,64 @@ _APPROVING_AUTHORITY_CODES_TO_REMOVE = {909670002}
 
 
 def _expand_temporal_rows(df: pd.DataFrame) -> pd.DataFrame:
-    """Create time-versioned rows for SCD2 tracking.
+    """Create time-versioned rows from year-specific RD stage columns.
 
-    For each candidate, creates up to 3 rows (2023, 2024, 2025) based on
-    which year columns have non-null RD stage values.
-
-    Args:
-        df: Filtered candidates DataFrame with renamed columns.
-
-    Returns:
-        Expanded DataFrame with RD_stage, valid_from, valid_to columns.
+    Produces one row per candidate per year where RD stage data exists.
+    Must be called before column renaming (uses original bronze names).
     """
     frames = []
 
+    # 2021 data
+    if "new_rdstage2021" in df.columns:
+        df_2021 = df[df["new_rdstage2021"].notna()].copy()
+        if not df_2021.empty:
+            df_2021["new_currentrdstage"] = df_2021["new_rdstage2021"]
+            df_2021["valid_from"] = "2021-01-01"
+            df_2021["valid_to"] = "2023-01-01"
+            frames.append(df_2021)
+
     # 2023 data
-    df_2023 = df[df["2023currentrdstage"].notna()].copy()
-    if not df_2023.empty:
-        df_2023["RD_stage"] = df_2023["2023currentrdstage"]
-        df_2023["valid_from"] = "2023-01-01"
-        df_2023["valid_to"] = "2023-12-31"
-        frames.append(df_2023)
+    if "new_2023currentrdstage" in df.columns:
+        df_2023 = df[df["new_2023currentrdstage"].notna()].copy()
+        if not df_2023.empty:
+            df_2023["new_currentrdstage"] = df_2023["new_2023currentrdstage"]
+            df_2023["valid_from"] = "2023-01-01"
+            df_2023["valid_to"] = "2024-01-01"
+            frames.append(df_2023)
 
     # 2024 data
-    df_2024 = df[df["2024rdstage"].notna()].copy()
-    if not df_2024.empty:
-        df_2024["RD_stage"] = df_2024["2024rdstage"]
-        df_2024["valid_from"] = "2024-01-01"
-        df_2024["valid_to"] = "2024-12-31"
-        frames.append(df_2024)
+    if "new_2024currentrdstage" in df.columns:
+        df_2024 = df[df["new_2024currentrdstage"].notna()].copy()
+        if not df_2024.empty:
+            df_2024["new_currentrdstage"] = df_2024["new_2024currentrdstage"]
+            df_2024["valid_from"] = "2024-01-01"
+            df_2024["valid_to"] = "2025-01-01"
+            frames.append(df_2024)
 
-    # Most recent (2025)
-    df_mr = df[df["rdstage_value"].notna()].copy()
-    if not df_mr.empty:
-        df_mr["RD_stage"] = df_mr["rdstage_value"]
-        df_mr["valid_from"] = "2025-01-01"
-        df_mr["valid_to"] = "2025-12-31"
-        frames.append(df_mr)
+    # 2025 (current) data
+    if "vin_currentrdstage" in df.columns:
+        df_2025 = df[df["vin_currentrdstage"].notna()].copy()
+        if not df_2025.empty:
+            df_2025["new_currentrdstage"] = df_2025["vin_currentrdstage"]
+            df_2025["valid_from"] = "2025-01-01"
+            df_2025["valid_to"] = None
+            frames.append(df_2025)
 
     if not frames:
         df_result = df.copy()
-        df_result["RD_stage"] = None
-        return df_result
+        df_result["new_currentrdstage"] = None
+        df_result["valid_from"] = None
+        df_result["valid_to"] = None
+        return df_result.drop(
+            columns=[c for c in _TEMPORAL_SOURCE_COLS if c in df_result.columns]
+        )
 
     df_expand = pd.concat(frames, ignore_index=True)
-    df_expand = df_expand.sort_values(by=["candidate_name"])
+    df_expand = df_expand.sort_values(by=["vin_candidateid"])
+    # Drop consumed temporal source columns
+    df_expand = df_expand.drop(
+        columns=[c for c in _TEMPORAL_SOURCE_COLS if c in df_expand.columns]
+    )
     return df_expand
 
 
@@ -351,64 +370,81 @@ def transform_candidates(
     Returns:
         Tuple of (transformed DataFrame, dict of cleaned option sets).
     """
-    # Drop named metadata columns
-    df = drop_columns_by_name(df, _COLUMNS_TO_DROP)
+    # 1. Temporal expansion FIRST (reads original bronze column names)
+    df = _expand_temporal_rows(df)
 
-    # Drop all-null columns (preserving valid_to, valid_from)
+    # 2. Drop columns (temporal sources already consumed by expansion)
+    df = drop_columns_by_name(df, _COLUMNS_TO_DROP)
     df = drop_empty_columns(df, preserve=["valid_to", "valid_from"])
 
-    # Rename columns
+    # 3. Rename columns
     df = rename_columns(df, _COLUMN_RENAMES)
 
-    # Standardize categorical values
+    # 4. Standardize new_currentrdstage (from SCD2 expansion)
+    if "new_currentrdstage" in df.columns:
+        df = replace_values(df, "new_currentrdstage", _RD_STAGE_MAPPING)
+        # Strip remaining " - ProductType" suffixes
+        mask = df["new_currentrdstage"].str.contains(" - ", na=False)
+        df.loc[mask, "new_currentrdstage"] = (
+            df.loc[mask, "new_currentrdstage"].str.split(" - ").str[0]
+        )
+
+    # 5. Standardize other categorical values
     if "pressuretype" in df.columns:
         df = replace_values(df, "pressuretype", _PRESSURE_TYPE_MAPPING)
     if "product" in df.columns:
         df = replace_values(df, "product", _PRODUCT_TYPE_MAPPING)
-    if "2024rdstage" in df.columns:
-        df = replace_values(df, "2024rdstage", _RD_STAGE_MAPPING)
 
     # Consolidate option set code values
     if "approvalstatus" in df.columns:
         df = replace_values(df, "approvalstatus", _APPROVAL_STATUS_CONSOLIDATION)
     if "approvingauthority" in df.columns:
-        df = replace_values(df, "approvingauthority", _APPROVING_AUTHORITY_CONSOLIDATION)
+        df = replace_values(
+            df, "approvingauthority", _APPROVING_AUTHORITY_CONSOLIDATION
+        )
 
-    # Filter to pipeline-included candidates
+    # 6. Filter to pipeline-included candidates
     if "includeinpipeline" in df.columns:
         df = df[
             (df["includeinpipeline"] == 100000000)
             | (df["includeinpipeline"] == 100000002)
         ].copy()
 
-    # Temporal expansion
-    df = _expand_temporal_rows(df)
-
-    # Consolidate indication type and preclinical results (after expansion)
+    # 7. Post-filter consolidations
     if "indicationtype" in df.columns:
         df = replace_values(df, "indicationtype", _INDICATION_TYPE_CONSOLIDATION)
     if "preclinicalresultsstatus" in df.columns:
-        df = replace_values(df, "preclinicalresultsstatus", _PRECLINICAL_RESULTS_CONSOLIDATION)
+        df = replace_values(
+            df, "preclinicalresultsstatus", _PRECLINICAL_RESULTS_CONSOLIDATION
+        )
 
     # Clean option sets
     cleaned_option_sets: dict[str, pd.DataFrame] = {}
 
     if option_sets:
         _dedup_option_set(
-            option_sets, cleaned_option_sets,
-            "_optionset_new_indicationtype", _INDICATION_TYPE_CODES_TO_REMOVE,
+            option_sets,
+            cleaned_option_sets,
+            "_optionset_new_indicationtype",
+            _INDICATION_TYPE_CODES_TO_REMOVE,
         )
         _dedup_option_set(
-            option_sets, cleaned_option_sets,
-            "_optionset_vin_preclinicalresultsstatus", _PRECLINICAL_RESULTS_CODES_TO_REMOVE,
+            option_sets,
+            cleaned_option_sets,
+            "_optionset_vin_preclinicalresultsstatus",
+            _PRECLINICAL_RESULTS_CODES_TO_REMOVE,
         )
         _dedup_option_set(
-            option_sets, cleaned_option_sets,
-            "_optionset_vin_approvalstatus", _APPROVAL_STATUS_CODES_TO_REMOVE,
+            option_sets,
+            cleaned_option_sets,
+            "_optionset_vin_approvalstatus",
+            _APPROVAL_STATUS_CODES_TO_REMOVE,
         )
         _dedup_option_set(
-            option_sets, cleaned_option_sets,
-            "_optionset_vin_approvingauthority", _APPROVING_AUTHORITY_CODES_TO_REMOVE,
+            option_sets,
+            cleaned_option_sets,
+            "_optionset_vin_approvingauthority",
+            _APPROVING_AUTHORITY_CODES_TO_REMOVE,
         )
 
     return df, cleaned_option_sets

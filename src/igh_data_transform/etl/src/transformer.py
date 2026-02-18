@@ -17,6 +17,8 @@ ISO_DATE_LENGTH = 10
 # Normalize non-standard phase names to their canonical dim_phase equivalents
 _PHASE_ALIASES = {
     "Approved product": "Approved",
+    "Discovery and Preclinical": "Discovery and preclinical",
+    "N/A": "Not applicable",
 }
 
 logger = logging.getLogger(__name__)
@@ -337,17 +339,15 @@ class Transformer:
                 (timestamp[:ISO_DATE_LENGTH] if len(timestamp) >= ISO_DATE_LENGTH else None) if timestamp else None
             )
         elif lookup_col == "COMPOSITE":
-            # Handle composite key lookup
-            source_cols = source_ref.split(",")
-            key_values = tuple(
-                self._evaluate_expression(
-                    f"OPTIONSET:{col}" if col.startswith("vin_") and "date" not in col else col, row
-                )
-                if col.startswith("vin_")
-                else row.get(col)
-                for col in source_cols
-            )
-            return self.lookup_composite_key(dim_table, key_values)
+            # Resolve composite FK by evaluating the dimension's own expressions
+            dim_config = STAR_SCHEMA_MAP.get(dim_table, {})
+            dim_special = dim_config.get("_special", {})
+            dim_distinct_cols = dim_special.get("distinct_cols", [])
+            key_values = []
+            for target_col in dim_distinct_cols:
+                dim_expr = dim_config.get(target_col)
+                key_values.append(self._evaluate_expression(dim_expr, row))
+            return self.lookup_composite_key(dim_table, tuple(key_values))
         else:
             lookup_val = row.get(source_ref)
 

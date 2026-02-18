@@ -22,14 +22,14 @@ from src.transformer import Transformer
 # Note: dim_phase uses phase_name for lookups (to match extracted phase from "Phase I - Drugs")
 DIMENSION_NATURAL_KEYS = {
     "dim_product": "vin_productid",
-    "dim_candidate_core": "vin_candidateid",
-    "dim_disease": "vin_diseaseid",
+    "dim_candidate_core": "candidateid",
+    "dim_disease": "diseaseid",
     "dim_phase": "phase_name",  # Use phase_name for FK lookups
     "dim_geography": "vin_countryid",
     "dim_organization": "accountid",
-    "dim_priority": "vin_rdpriorityid",
+    "dim_priority": "rdpriorityid",
     "dim_date": "full_date",
-    "dim_developer": "developer_name",  # Extracted from delimited vin_developersaggregated
+    "dim_developer": "developer_name",
     "dim_age_group": "option_code",
     "dim_approving_authority": "option_code",
     "dim_funder": "funder_name",
@@ -37,7 +37,7 @@ DIMENSION_NATURAL_KEYS = {
 
 # Fact tables that need their keys cached for bridge FK resolution
 FACT_NATURAL_KEYS = {
-    "fact_clinical_trial_event": "vin_clinicaltrialid",
+    "fact_clinical_trial_event": "clinicaltrialid",
 }
 
 

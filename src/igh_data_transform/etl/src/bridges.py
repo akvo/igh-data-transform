@@ -167,9 +167,13 @@ def transform_delimited_bridge(transformer: Transformer, table_name: str, config
 
     transformed = []
 
+    # Derive candidate source column from config FK expression
+    candidate_fk_expr = config.get("candidate_key", "")
+    candidate_source_col = candidate_fk_expr.split("|")[-1] if "|" in candidate_fk_expr else "candidateid"
+
     for row in transformer.extractor.extract_table(source_table):
         # Get the candidate key first
-        candidate_id = row.get("vin_candidateid")
+        candidate_id = row.get(candidate_source_col)
         candidate_key = transformer.lookup_dimension_key("dim_candidate_core", candidate_id)
 
         if candidate_key is None:
