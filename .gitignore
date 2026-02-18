@@ -22,3 +22,6 @@ htmlcov/
 
 # Claude code
 .claude/*.local.*
+
+# E2E test data (large, synced from Dataverse)
+tests/data/

@@ -3,11 +3,36 @@
 import pandas as pd
 
 from igh_data_transform.transformations.cleanup import (
+    drop_columns_by_name,
     drop_empty_columns,
     normalize_whitespace,
     rename_columns,
     replace_values,
 )
+
+
+class TestDropColumnsByName:
+    """Tests for drop_columns_by_name function."""
+
+    def test_drops_listed_columns_that_exist(self):
+        df = pd.DataFrame({"a": [1, 2], "b": [3, 4], "c": [5, 6]})
+        result = drop_columns_by_name(df, ["a", "c"])
+        assert list(result.columns) == ["b"]
+
+    def test_ignores_columns_that_dont_exist(self):
+        df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
+        result = drop_columns_by_name(df, ["a", "nonexistent"])
+        assert list(result.columns) == ["b"]
+
+    def test_returns_unchanged_when_list_is_empty(self):
+        df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
+        result = drop_columns_by_name(df, [])
+        assert list(result.columns) == ["a", "b"]
+
+    def test_does_not_modify_original(self):
+        df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
+        drop_columns_by_name(df, ["a"])
+        assert list(df.columns) == ["a", "b"]
 
 
 class TestDropEmptyColumns:
