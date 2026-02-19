@@ -6,7 +6,7 @@ import pytest
 
 from config import schema_map
 from src import bridges as bridges_mod
-from src.bridges import transform_bridge, transform_delimited_bridge
+from src.bridges import transform_bridge, transform_delimited_bridge, transform_union_bridge
 from src.transformer import Transformer
 
 
@@ -206,3 +206,115 @@ class TestTrialGeographyBridge:
         assert result[0] == {"trial_key": 1, "country_key": 10}
         assert result[1] == {"trial_key": 1, "country_key": 11}
         assert result[2] == {"trial_key": 2, "country_key": 10}
+
+
+class TestUnionBridgeDeveloperLocation:
+    """Test Developer Location sourced from vin_developers via country_name_lookup."""
+
+    @pytest.fixture
+    def transformer(self):
+        """Create transformer with mocked extractor and caches."""
+        mock_extractor = MagicMock()
+        t = Transformer(mock_extractor)
+        t._dim_caches["dim_candidate_core"] = {"cand-1": 1, "cand-2": 2}
+        t._dim_caches["dim_geography_by_country_name"] = {"France": 10, "Turkey": 11}
+        return t
+
+    def _source_def(self):
+        return {
+            "table": "vin_developers",
+            "candidate_col": "candidateid",
+            "country_col": "country_name",
+            "location_scope": "Developer Location",
+            "country_name_lookup": True,
+        }
+
+    def _config(self):
+        return {
+            "_source_table": "UNION",
+            "_pk": None,
+            "_special": {"union_sources": [self._source_def()]},
+            "candidate_key": "FK:dim_candidate_core.candidateid|candidate_col",
+            "country_key": "FK:dim_geography.vin_countryid|country_col",
+            "location_scope": "LITERAL:location_scope",
+        }
+
+    def test_valid_developer_row(self, transformer):
+        """Valid developer row produces bridge row with Developer Location scope."""
+        transformer.extractor.extract_table.return_value = [
+            {"candidateid": "cand-1", "country_name": "France"},
+        ]
+
+        result = transform_union_bridge(
+            transformer,
+            "bridge_candidate_geography",
+            self._config(),
+            self._config()["_special"],
+        )
+
+        assert result == [
+            {"candidate_key": 1, "country_key": 10, "location_scope": "Developer Location"},
+        ]
+
+    def test_null_country_name_skipped(self, transformer):
+        """Row with country_name=None is skipped."""
+        transformer.extractor.extract_table.return_value = [
+            {"candidateid": "cand-1", "country_name": None},
+        ]
+
+        result = transform_union_bridge(
+            transformer,
+            "bridge_candidate_geography",
+            self._config(),
+            self._config()["_special"],
+        )
+
+        assert result == []
+
+    def test_unknown_candidateid_skipped(self, transformer):
+        """Row with unrecognised candidateid is skipped."""
+        transformer.extractor.extract_table.return_value = [
+            {"candidateid": "unknown", "country_name": "France"},
+        ]
+
+        result = transform_union_bridge(
+            transformer,
+            "bridge_candidate_geography",
+            self._config(),
+            self._config()["_special"],
+        )
+
+        assert result == []
+
+    def test_unknown_country_name_skipped(self, transformer):
+        """Row with country_name not in dim_geography is skipped."""
+        transformer.extractor.extract_table.return_value = [
+            {"candidateid": "cand-1", "country_name": "Narnia"},
+        ]
+
+        result = transform_union_bridge(
+            transformer,
+            "bridge_candidate_geography",
+            self._config(),
+            self._config()["_special"],
+        )
+
+        assert result == []
+
+    def test_duplicate_candidate_country_deduplicated(self, transformer):
+        """Two developers in same country for same candidate produce one bridge row."""
+        transformer.extractor.extract_table.return_value = [
+            {"candidateid": "cand-1", "country_name": "France"},
+            {"candidateid": "cand-1", "country_name": "France"},
+        ]
+
+        result = transform_union_bridge(
+            transformer,
+            "bridge_candidate_geography",
+            self._config(),
+            self._config()["_special"],
+        )
+
+        assert result == [
+            {"candidate_key": 1, "country_key": 10, "location_scope": "Developer Location"},
+        ]

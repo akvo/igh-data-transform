@@ -128,6 +128,9 @@ def transform_union_bridge(transformer: Transformer, table_name: str, _config: d
                     continue
                 # Country name -> country_key via secondary cache
                 country_key = transformer._dim_caches.get("dim_geography_by_country_name", {}).get(country_name)
+            elif source_def.get("country_name_lookup"):
+                # country_ref is already a country name — look up directly
+                country_key = transformer._dim_caches.get("dim_geography_by_country_name", {}).get(country_ref)
             else:
                 country_key = transformer.lookup_dimension_key("dim_geography", country_ref)
 
@@ -137,6 +140,16 @@ def transform_union_bridge(transformer: Transformer, table_name: str, _config: d
                     "country_key": country_key,
                     "location_scope": location_scope,
                 })
+
+    # Deduplicate rows (e.g. multiple developers from same country for same candidate)
+    seen = set()
+    deduped = []
+    for row in transformed:
+        key = (row["candidate_key"], row["country_key"], row["location_scope"])
+        if key not in seen:
+            seen.add(key)
+            deduped.append(row)
+    transformed = deduped
 
     logger.info(f"Transformed {len(transformed)} rows for {table_name}")
     return transformed

@@ -237,11 +237,11 @@ STAR_SCHEMA_MAP = {
                     "optionset_lookup": "new_targetcountry",
                 },
                 {
-                    "table": "_junction_vin_candidates_new_whereistheresearchlocated",
-                    "candidate_col": "entity_id",
-                    "country_col": "option_code",
-                    "location_scope": "Developer Location",  # Using research location as developer location
-                    "optionset_lookup": "new_whereistheresearchlocated",
+                    "table": "vin_developers",
+                    "candidate_col": "candidateid",
+                    "country_col": "country_name",
+                    "location_scope": "Developer Location",
+                    "country_name_lookup": True,
                 },
             ]
         },
