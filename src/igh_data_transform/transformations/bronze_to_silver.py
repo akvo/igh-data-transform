@@ -29,6 +29,7 @@ OPTIONSET_RENAMES = {
     "_optionset_vin_preclinicalresultsstatus": "_optionset_preclinicalresultsstatus",
     "_optionset_new_agespecific": "_optionset_agespecific",
     "_optionset_vin_approvingauthority": "_optionset_approvingauthority",
+    "_optionset_vin_stringentregulatoryauthorityapproval": "_optionset_SRA_approvalstatus",
     # From clinical_trials.py
     "_optionset_vin_ctstatus": "_optionset_ctstatus",
     # From diseases.py

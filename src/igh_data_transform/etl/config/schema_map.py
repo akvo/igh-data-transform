@@ -54,6 +54,13 @@ STAR_SCHEMA_MAP = {
         "countries_approved_agg": "countries_product_approved",
         "candidate_type": "CASE WHEN captype_value = 'c1746ad3-93d1-f011-bbd3-00224892cefa' THEN 'Candidate' WHEN captype_value = '545d63d9-93d1-f011-bbd3-00224892cefa' THEN 'Product' ELSE 'Other' END",
         "indication": "indication",
+        "indication_type": "OPTIONSET:indicationtype",
+        "healthcare_facility_level": "healthcarefacilitylevel",
+        "preclinical_results_status": "OPTIONSET:preclinicalresultsstatus",
+        "type_of_preclinical_results": "typeofpreclinicalresults",
+        "preclinical_results_source": "preclinicalresultssource",
+        "recent_updates": "recentupdates",
+        "test_format": "testformat",
     },
     "dim_disease": {
         "_source_table": "vin_diseases",
@@ -92,6 +99,7 @@ STAR_SCHEMA_MAP = {
                 "who_prequal_date",
                 "who_prequalification",
                 "nra_approval_status",
+                "sra_approval_status",
             ],
         },
         "approval_status": "OPTIONSET:approvalstatus",
@@ -99,6 +107,7 @@ STAR_SCHEMA_MAP = {
         "who_prequal_date": "whoprequalificationdate",
         "who_prequalification": "OPTIONSET:whoprequalification",
         "nra_approval_status": "OPTIONSET:NRAapprovalstatus",
+        "sra_approval_status": "OPTIONSET:SRA_approvalstatus",
     },
     "dim_date": {
         "_source_table": None,  # Generated programmatically
