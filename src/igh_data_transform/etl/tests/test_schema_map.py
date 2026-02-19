@@ -68,14 +68,18 @@ class TestPhaseSortOrder:
     """Test phase sort order configuration."""
 
     def test_phase_sort_order_has_standard_phases(self):
-        """Ensure standard R&D phases are defined."""
+        """Ensure the 10 canonical R&D phases are defined."""
         expected_phases = [
-            "Discovery",
-            "Preclinical",
+            "Discovery & Preclinical",
+            "Early development",
             "Phase I",
             "Phase II",
             "Phase III",
-            "Phase IV",
+            "Late development",
+            "Regulatory filing",
+            "Approved",
+            "Post-marketing surveillance",
+            "Human safety & efficacy",
         ]
         for phase in expected_phases:
             assert phase in PHASE_SORT_ORDER, f"Missing standard phase: {phase}"
@@ -83,12 +87,12 @@ class TestPhaseSortOrder:
     def test_phase_sort_order_is_ordered(self):
         """Ensure phases are in logical order."""
         # Discovery should come before clinical phases
-        assert PHASE_SORT_ORDER["Discovery"] < PHASE_SORT_ORDER["Phase I"]
+        assert PHASE_SORT_ORDER["Discovery & Preclinical"] < PHASE_SORT_ORDER["Phase I"]
 
         # Clinical phases should be in order
         assert PHASE_SORT_ORDER["Phase I"] < PHASE_SORT_ORDER["Phase II"]
         assert PHASE_SORT_ORDER["Phase II"] < PHASE_SORT_ORDER["Phase III"]
-        assert PHASE_SORT_ORDER["Phase III"] < PHASE_SORT_ORDER["Phase IV"]
+        assert PHASE_SORT_ORDER["Phase III"] < PHASE_SORT_ORDER["Approved"]
 
     def test_not_applicable_at_end(self):
         """Not applicable should have high sort order."""

@@ -5,7 +5,11 @@ import re
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
-from config.phase_sort_order import PHASE_SORT_ORDER
+from config.phase_sort_order import (
+    PHASE_ALIASES,
+    collect_referenced_phase_names,
+    inject_synthetic_phases,
+)
 from config.schema_map import STAR_SCHEMA_MAP
 from src import bridges
 from src.expressions import evaluate_lookup, parse_case_when, parse_coalesce
@@ -13,13 +17,6 @@ from src.extractor import Extractor
 
 # Length of ISO date string (YYYY-MM-DD)
 ISO_DATE_LENGTH = 10
-
-# Normalize non-standard phase names to their canonical dim_phase equivalents
-_PHASE_ALIASES = {
-    "Approved product": "Approved",
-    "Discovery and Preclinical": "Discovery and preclinical",
-    "N/A": "Not applicable",
-}
 
 logger = logging.getLogger(__name__)
 
@@ -107,18 +104,6 @@ class Transformer:
         cache = self._composite_caches.get(table_name, {})
         return cache.get(key_values)
 
-    def _collect_referenced_phase_names(self) -> set[str]:
-        """Scan vin_candidates.new_currentrdstage to find all referenced phase names."""
-        referenced: set[str] = set()
-        for row in self.extractor.extract_table("vin_candidates", ["new_currentrdstage"]):
-            raw = row.get("new_currentrdstage")
-            if not raw:
-                continue
-            phase = raw.split(" - ")[0] if " - " in raw else raw
-            phase = _PHASE_ALIASES.get(phase, phase)
-            referenced.add(phase)
-        return referenced
-
     def transform_dimension(self, table_name: str) -> list[dict]:
         """Transform a dimension table according to schema map."""
         config = STAR_SCHEMA_MAP[table_name]
@@ -156,22 +141,25 @@ class Transformer:
             transformed.append(new_row)
 
         if table_name == "dim_phase":
-            referenced = self._collect_referenced_phase_names()
-            # Deduplicate by phase_name (keep first occurrence)
-            seen_names: set[str] = set()
-            deduped: list[dict] = []
-            for row in transformed:
-                name = row.get("phase_name")
-                if name and name not in seen_names:
-                    seen_names.add(name)
-                    deduped.append(row)
-            # Filter to only phases referenced by candidates
-            transformed = [r for r in deduped if r.get("phase_name") in referenced]
-            # Inject synthetic phases (only those referenced)
-            transformed = self._inject_synthetic_phases(transformed, referenced)
+            transformed = self._postprocess_dim_phase(transformed)
 
         logger.info(f"Transformed {len(transformed)} rows for {table_name}")
         return transformed
+
+    def _postprocess_dim_phase(self, transformed: list[dict]) -> list[dict]:
+        """Deduplicate, filter unreferenced, and inject synthetic phases."""
+        referenced = collect_referenced_phase_names(self.extractor)
+        # Deduplicate by phase_name (keep first occurrence)
+        seen_names: set[str] = set()
+        deduped: list[dict] = []
+        for row in transformed:
+            name = row.get("phase_name")
+            if name and name not in seen_names:
+                seen_names.add(name)
+                deduped.append(row)
+        # Filter to only phases referenced by candidates
+        filtered = [r for r in deduped if r.get("phase_name") in referenced]
+        return inject_synthetic_phases(filtered, referenced)
 
     def _transform_distinct_dimension(self, table_name: str, config: dict) -> list[dict]:
         """
@@ -349,7 +337,7 @@ class Transformer:
                 # Extract phase part (before " - ")
                 phase_part = combined.split(" - ")[0] if " - " in combined else combined
                 # Normalize known aliases
-                phase_part = _PHASE_ALIASES.get(phase_part, phase_part)
+                phase_part = PHASE_ALIASES.get(phase_part, phase_part)
                 # Look up by phase name
                 lookup_val = self._find_phase_id_by_name(phase_part)
             else:
@@ -383,25 +371,6 @@ class Transformer:
     def _find_phase_id_by_name(phase_name: str) -> str | None:
         """Find phase ID by name (returns name for lookup)."""
         return phase_name
-
-    @staticmethod
-    def _inject_synthetic_phases(
-        transformed: list[dict],
-        referenced_phases: set[str] | None = None,
-    ) -> list[dict]:
-        """Add phases from PHASE_SORT_ORDER that aren't already in the source data."""
-        existing_names = {row["phase_name"] for row in transformed if row.get("phase_name")}
-        for phase_name, sort_order in PHASE_SORT_ORDER.items():
-            if phase_name not in existing_names:
-                if referenced_phases is not None and phase_name not in referenced_phases:
-                    continue
-                transformed.append({
-                    "vin_rdstageid": None,
-                    "phase_name": phase_name,
-                    "sort_order": sort_order,
-                })
-                logger.info(f"Injected synthetic phase: {phase_name}")
-        return transformed
 
     def build_candidate_cross_refs(self, pipeline_data: list[dict]) -> None:
         """Build candidate_key → disease_key/product_key maps from loaded pipeline snapshots."""

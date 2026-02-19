@@ -2,7 +2,11 @@
 
 from unittest.mock import MagicMock
 
-from config.phase_sort_order import PHASE_SORT_ORDER
+from config.phase_sort_order import (
+    PHASE_SORT_ORDER,
+    collect_referenced_phase_names,
+    inject_synthetic_phases,
+)
 from src.transformer import Transformer
 
 
@@ -22,7 +26,7 @@ def _make_transformer(rdstage_rows, candidate_rows):
 
 
 class TestCollectReferencedPhaseNames:
-    """Test _collect_referenced_phase_names parsing logic."""
+    """Test collect_referenced_phase_names parsing logic."""
 
     def test_extracts_phase_before_dash(self):
         """Phase name is the text before ' - '."""
@@ -33,7 +37,7 @@ class TestCollectReferencedPhaseNames:
                 {"new_currentrdstage": "Phase II - Vaccines"},
             ],
         )
-        assert t._collect_referenced_phase_names() == {"Phase I", "Phase II"}
+        assert collect_referenced_phase_names(t.extractor) == {"Phase I", "Phase II"}
 
     def test_uses_full_value_when_no_dash(self):
         """When there is no ' - ' separator, the full value is the phase name."""
@@ -43,7 +47,7 @@ class TestCollectReferencedPhaseNames:
                 {"new_currentrdstage": "Approved"},
             ],
         )
-        assert t._collect_referenced_phase_names() == {"Approved"}
+        assert collect_referenced_phase_names(t.extractor) == {"Approved"}
 
     def test_applies_alias_normalization(self):
         """Alias like 'N/A' maps to 'Not applicable'."""
@@ -53,7 +57,7 @@ class TestCollectReferencedPhaseNames:
                 {"new_currentrdstage": "N/A"},
             ],
         )
-        result = t._collect_referenced_phase_names()
+        result = collect_referenced_phase_names(t.extractor)
         assert "Not applicable" in result
         assert "N/A" not in result
 
@@ -67,7 +71,7 @@ class TestCollectReferencedPhaseNames:
                 {"new_currentrdstage": "Phase I - Drugs"},
             ],
         )
-        assert t._collect_referenced_phase_names() == {"Phase I"}
+        assert collect_referenced_phase_names(t.extractor) == {"Phase I"}
 
 
 class TestDimPhaseFiltering:
@@ -135,8 +139,8 @@ class TestDimPhaseFiltering:
         t = _make_transformer(rdstages, candidates)
         result = t.transform_dimension("dim_phase")
         names = {r["phase_name"] for r in result}
-        # "Operational research for diagnostics" is in PHASE_SORT_ORDER but not referenced
-        assert "Operational research for diagnostics" not in names
+        # "Post-marketing surveillance" is in PHASE_SORT_ORDER but not referenced
+        assert "Post-marketing surveillance" not in names
 
     def test_alias_maps_approved_product_to_approved(self):
         """'Approved product' in candidates references the 'Approved' phase."""
@@ -153,12 +157,12 @@ class TestDimPhaseFiltering:
 
 
 class TestInjectSyntheticPhases:
-    """Test _inject_synthetic_phases in isolation."""
+    """Test inject_synthetic_phases in isolation."""
 
     def test_without_referenced_filter_injects_all_missing(self):
         """When referenced_phases is None, all missing PHASE_SORT_ORDER entries are injected."""
         existing = [{"phase_name": "Phase I", "sort_order": 40}]
-        result = Transformer._inject_synthetic_phases(existing, referenced_phases=None)
+        result = inject_synthetic_phases(existing, referenced_phases=None)
         names = {r["phase_name"] for r in result}
         # Should have Phase I plus all others from PHASE_SORT_ORDER
         for phase in PHASE_SORT_ORDER:
@@ -168,9 +172,9 @@ class TestInjectSyntheticPhases:
         """When referenced_phases is provided, only those missing phases are injected."""
         existing = [{"phase_name": "Phase I", "sort_order": 40}]
         referenced = {"Phase I", "Phase II", "Approved"}
-        result = Transformer._inject_synthetic_phases(existing, referenced_phases=referenced)
+        result = inject_synthetic_phases(existing, referenced_phases=referenced)
         names = {r["phase_name"] for r in result}
         assert "Phase I" in names  # Already existed
         assert "Phase II" in names  # Injected (referenced)
         assert "Approved" in names  # Injected (referenced)
-        assert "Discovery" not in names  # Not referenced
+        assert "Late development" not in names  # Not referenced

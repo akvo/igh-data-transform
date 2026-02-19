@@ -477,7 +477,7 @@ class TestTransformCandidates:
         stages = result["new_currentrdstage"].dropna().unique()
         assert "Late development" in stages
         assert "Phase III" in stages
-        assert "Discovery and Preclinical" in stages
+        assert "Discovery & Preclinical" in stages
 
     def test_rd_stage_suffix_stripping(self):
         """Remaining ' - ProductType' suffixes are stripped from new_currentrdstage."""
