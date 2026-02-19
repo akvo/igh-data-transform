@@ -60,6 +60,7 @@ STAR_SCHEMA_MAP = {
         "_pk": "disease_key",
         "diseaseid": "diseaseid",
         "disease_name": "name",
+        "disease_group_name": "disease",
         "global_health_area": "OPTIONSET:globalhealtharea",
         "disease_type": "COALESCE(disease_simple, 'Unknown')",
     },
