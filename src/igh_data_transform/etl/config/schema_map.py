@@ -100,6 +100,9 @@ STAR_SCHEMA_MAP = {
                 "who_prequalification",
                 "nra_approval_status",
                 "sra_approval_status",
+                "ema_approval_status",
+                "japanese_mhlw_approval_status",
+                "us_fda_approval_status",
             ],
         },
         "approval_status": "OPTIONSET:approvalstatus",
@@ -108,6 +111,9 @@ STAR_SCHEMA_MAP = {
         "who_prequalification": "OPTIONSET:whoprequalification",
         "nra_approval_status": "OPTIONSET:NRAapprovalstatus",
         "sra_approval_status": "OPTIONSET:SRA_approvalstatus",
+        "ema_approval_status": "OPTIONSET:emaapprovalstatus|vin_emaapprovalstatus",
+        "japanese_mhlw_approval_status": "OPTIONSET:japanesemhlwapprovalstatus|vin_japanesemhlwapprovalstatus",
+        "us_fda_approval_status": "OPTIONSET:usfdaapprovalstatus|vin_usfdaapprovalstatus",
     },
     "dim_date": {
         "_source_table": None,  # Generated programmatically
