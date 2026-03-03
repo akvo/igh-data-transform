@@ -4,6 +4,7 @@ import pandas as pd
 
 from igh_data_transform.transformations.candidates import (
     _expand_temporal_rows,
+    _normalize_text_pipeline_cols,
     _resolve_rdstage_fk,
     transform_candidates,
 )
@@ -81,6 +82,41 @@ class TestResolveRdstageFk:
         original_cols = list(df.columns)
         _resolve_rdstage_fk(df, rdstageproducts)
         assert list(df.columns) == original_cols
+
+
+class TestNormalizeTextPipelineCols:
+    """Tests for _normalize_text_pipeline_cols function."""
+
+    def test_yes_maps_to_included(self):
+        df = pd.DataFrame({"vin_2019pcrpipelineinclusion": ["Yes"]})
+        result = _normalize_text_pipeline_cols(df)
+        assert result["vin_2019pcrpipelineinclusion"].iloc[0] == 100000000
+
+    def test_no_maps_to_excluded(self):
+        df = pd.DataFrame({"new_2023includeinevgendatabase": ["No"]})
+        result = _normalize_text_pipeline_cols(df)
+        assert result["new_2023includeinevgendatabase"].iloc[0] == 100000001
+
+    def test_pending_maps_to_excluded(self):
+        df = pd.DataFrame({"new_2023includeinevgendatabase": ["Pending"]})
+        result = _normalize_text_pipeline_cols(df)
+        assert result["new_2023includeinevgendatabase"].iloc[0] == 100000001
+
+    def test_null_stays_null(self):
+        df = pd.DataFrame({"vin_2019pcrpipelineinclusion": [None]})
+        result = _normalize_text_pipeline_cols(df)
+        assert pd.isna(result["vin_2019pcrpipelineinclusion"].iloc[0])
+
+    def test_does_not_modify_original(self):
+        df = pd.DataFrame({"vin_2019pcrpipelineinclusion": ["Yes"]})
+        _normalize_text_pipeline_cols(df)
+        assert df["vin_2019pcrpipelineinclusion"].iloc[0] == "Yes"
+
+    def test_missing_column_is_noop(self):
+        df = pd.DataFrame({"other_col": [1, 2, 3]})
+        result = _normalize_text_pipeline_cols(df)
+        assert list(result.columns) == ["other_col"]
+        assert list(result["other_col"]) == [1, 2, 3]
 
 
 class TestExpandTemporalRows:
@@ -401,6 +437,83 @@ class TestExpandTemporalRows:
         ]:
             assert col not in result.columns
 
+    def test_2019_pipeline_column_contributes_boundary(self):
+        """2019-01-01 appears in valid_from when vin_2019pcrpipelineinclusion is set."""
+        df = pd.DataFrame(
+            {
+                "vin_candidateid": ["cand-1"],
+                "vin_name": ["CandA"],
+                "_resolved_rdstage_2025": ["Phase III"],
+                "vin_2019pcrpipelineinclusion": [100000000],
+                "new_includeinpipeline": [100000000],
+                "vin_product": ["Drugs"],
+            }
+        )
+        result = _expand_temporal_rows(df)
+        assert "2019-01-01" in result["valid_from"].values
+
+    def test_2023_evgen_column_contributes_boundary(self):
+        """2023-01-01 appears in valid_from when new_2023includeinevgendatabase is set."""
+        df = pd.DataFrame(
+            {
+                "vin_candidateid": ["cand-1"],
+                "vin_name": ["CandA"],
+                "_resolved_rdstage_2025": ["Phase III"],
+                "new_2023includeinevgendatabase": [100000000],
+                "new_includeinpipeline": [100000000],
+                "vin_product": ["Drugs"],
+            }
+        )
+        result = _expand_temporal_rows(df)
+        assert "2023-01-01" in result["valid_from"].values
+
+    def test_new_pipeline_columns_dropped_from_output(self):
+        """Both new pipeline columns are absent from the result."""
+        df = pd.DataFrame(
+            {
+                "vin_candidateid": ["cand-1"],
+                "vin_name": ["CandA"],
+                "_resolved_rdstage_2025": ["Phase III"],
+                "vin_2019pcrpipelineinclusion": [100000000],
+                "new_2023includeinevgendatabase": [100000001],
+                "new_includeinpipeline": [100000000],
+                "vin_product": ["Drugs"],
+            }
+        )
+        result = _expand_temporal_rows(df)
+        assert "vin_2019pcrpipelineinclusion" not in result.columns
+        assert "new_2023includeinevgendatabase" not in result.columns
+
+    def test_full_pipeline_timeline_with_all_five_columns(self):
+        """All 5 pipeline boundaries produce 5 rows with correct forward-filled values."""
+        df = pd.DataFrame(
+            {
+                "vin_candidateid": ["cand-1"],
+                "vin_name": ["CandA"],
+                "vin_2019pcrpipelineinclusion": [100000000],
+                "new_includeinpipeline2021": [100000000],
+                "new_2023includeinevgendatabase": [100000001],
+                "new_2024includeinpipeline": [100000000],
+                "new_includeinpipeline": [100000001],
+                "vin_product": ["Drugs"],
+            }
+        )
+        result = _expand_temporal_rows(df)
+        result = result.sort_values("valid_from").reset_index(drop=True)
+        assert len(result) == 5
+        assert list(result["valid_from"]) == [
+            "2019-01-01",
+            "2021-01-01",
+            "2023-01-01",
+            "2024-01-01",
+            "2025-01-01",
+        ]
+        assert result.loc[0, "includeinpipeline"] == 100000000
+        assert result.loc[1, "includeinpipeline"] == 100000000
+        assert result.loc[2, "includeinpipeline"] == 100000001
+        assert result.loc[3, "includeinpipeline"] == 100000000
+        assert result.loc[4, "includeinpipeline"] == 100000001
+
     def test_null_latest_pipeline_overrides_forward_fill(self):
         """NULL in new_includeinpipeline (2025) explicitly overrides forward-fill."""
         df = pd.DataFrame(
@@ -444,9 +557,11 @@ class TestTransformCandidates:
             # FK GUID column for 2025 RD stage (resolved via lookup_tables)
             "_vin_currentrndstage_value": ["guid-1", "guid-2", None],
             # Pipeline columns (temporal)
-            "new_includeinpipeline": [100000000.0, 100000002.0, 100000001.0],
-            "new_2024includeinpipeline": [100000000.0, 100000002.0, 100000001.0],
+            "vin_2019pcrpipelineinclusion": ["Yes", None, "Yes"],
             "new_includeinpipeline2021": [100000000.0, 100000002.0, 100000001.0],
+            "new_2023includeinevgendatabase": ["Yes", "No", "Pending"],
+            "new_2024includeinpipeline": [100000000.0, 100000002.0, 100000001.0],
+            "new_includeinpipeline": [100000000.0, 100000002.0, 100000001.0],
             "_vin_captype_value": [
                 "c1746ad3-93d1-f011-bbd3-00224892cefa",
                 "545d63d9-93d1-f011-bbd3-00224892cefa",
@@ -645,14 +760,28 @@ class TestTransformCandidates:
         assert "includeinpipeline" in result.columns
         # include_in_pipeline boolean should be derived
         assert "include_in_pipeline" in result.columns
-        # Candidate A (100000000) -> 1, Candidate B (100000002) -> 1
-        cand_a = result[result["candidate_name"] == "Candidate A"]
-        assert (cand_a["include_in_pipeline"] == 1).all()
-        cand_b = result[result["candidate_name"] == "Candidate B"]
-        assert (cand_b["include_in_pipeline"] == 1).all()
-        # Candidate C (100000001) -> 0
-        cand_c = result[result["candidate_name"] == "Candidate C"]
-        assert (cand_c["include_in_pipeline"] == 0).all()
+        # Check current period (valid_to is NaN) for each candidate
+        # Candidate A: current pipeline=100000000 -> 1
+        cand_a_cur = result[
+            (result["candidate_name"] == "Candidate A") & (result["valid_to"].isna())
+        ]
+        assert (cand_a_cur["include_in_pipeline"] == 1).all()
+        # Candidate B: current pipeline=100000002 -> 1
+        cand_b_cur = result[
+            (result["candidate_name"] == "Candidate B") & (result["valid_to"].isna())
+        ]
+        assert (cand_b_cur["include_in_pipeline"] == 1).all()
+        # Candidate B at 2023 boundary: "No" -> 100000001 -> 0
+        cand_b_2023 = result[
+            (result["candidate_name"] == "Candidate B")
+            & (result["valid_from"] == "2023-01-01")
+        ]
+        assert (cand_b_2023["include_in_pipeline"] == 0).all()
+        # Candidate C: current pipeline=100000001 -> 0
+        cand_c_cur = result[
+            (result["candidate_name"] == "Candidate C") & (result["valid_to"].isna())
+        ]
+        assert (cand_c_cur["include_in_pipeline"] == 0).all()
 
     def test_statecode_filters_deleted_records(self):
         """Records with statecode != 0 are excluded."""
@@ -697,9 +826,11 @@ class TestTransformCandidates:
             "_vin_currentrndstage_value",
             "_resolved_rdstage_2025",
             "new_rdstage2021",
-            "new_includeinpipeline",
-            "new_2024includeinpipeline",
+            "vin_2019pcrpipelineinclusion",
             "new_includeinpipeline2021",
+            "new_2023includeinevgendatabase",
+            "new_2024includeinpipeline",
+            "new_includeinpipeline",
         ]:
             assert col not in result.columns
 

@@ -21,9 +21,11 @@ _TEMPORAL_SOURCE_COLS = [
     "new_2024currentrdstage",
     "_vin_currentrndstage_value",
     # Include-in-pipeline
-    "new_includeinpipeline",
-    "new_2024includeinpipeline",
+    "vin_2019pcrpipelineinclusion",
     "new_includeinpipeline2021",
+    "new_2023includeinevgendatabase",
+    "new_2024includeinpipeline",
+    "new_includeinpipeline",
 ]
 
 _PRODUCT_TYPE_MAPPING = {
@@ -107,6 +109,17 @@ _PRECLINICAL_RESULTS_CONSOLIDATION = {
     909670004.0: 909670002.0,  # Unavailable/unknown -> Unknown
 }
 
+_PIPELINE_TEXT_TO_CODE = {
+    "Yes": 100000000,
+    "No": 100000001,
+    "Pending": 100000001,
+}
+
+_TEXT_PIPELINE_COLS = [
+    "vin_2019pcrpipelineinclusion",
+    "new_2023includeinevgendatabase",
+]
+
 # Option set rows to remove (by code)
 _INDICATION_TYPE_CODES_TO_REMOVE = {100000003, 100000004, 100000005}
 _PRECLINICAL_RESULTS_CODES_TO_REMOVE = {909670004}
@@ -131,6 +144,15 @@ def _resolve_rdstage_fk(
     return df
 
 
+def _normalize_text_pipeline_cols(df: pd.DataFrame) -> pd.DataFrame:
+    """Convert text-valued pipeline columns to integer option set codes."""
+    df = df.copy()
+    for col in _TEXT_PIPELINE_COLS:
+        if col in df.columns:
+            df[col] = df[col].map(_PIPELINE_TEXT_TO_CODE)
+    return df
+
+
 def _expand_temporal_rows(df: pd.DataFrame) -> pd.DataFrame:
     """Create time-versioned rows via cross-product of temporal groups.
 
@@ -151,7 +173,9 @@ def _expand_temporal_rows(df: pd.DataFrame) -> pd.DataFrame:
     ]
 
     _pipeline_cols = [
+        ("vin_2019pcrpipelineinclusion", "2019-01-01"),
         ("new_includeinpipeline2021", "2021-01-01"),
+        ("new_2023includeinevgendatabase", "2023-01-01"),
         ("new_2024includeinpipeline", "2024-01-01"),
         ("new_includeinpipeline", "2025-01-01"),
     ]
@@ -241,6 +265,9 @@ def transform_candidates(
     # 1. Resolve FK for 2025 RD stage
     if lookup_tables and "vin_rdstageproducts" in lookup_tables:
         df = _resolve_rdstage_fk(df, lookup_tables["vin_rdstageproducts"])
+
+    # 1b. Normalize text-valued pipeline columns to integer codes
+    df = _normalize_text_pipeline_cols(df)
 
     # 2. Temporal expansion (reads original bronze column names)
     df = _expand_temporal_rows(df)
