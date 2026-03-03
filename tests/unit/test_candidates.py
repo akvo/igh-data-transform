@@ -88,6 +88,7 @@ class TestExpandTemporalRows:
 
     These tests operate on DataFrames after FK resolution, so 2025 data
     appears in the _resolved_rdstage_2025 column (not vin_currentrdstage).
+    The cross-product expansion also handles includeinpipeline columns.
     """
 
     def test_candidate_with_all_temporal_years(self):
@@ -99,6 +100,7 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": ["Phase I"],
                 "new_2024currentrdstage": ["Phase II"],
                 "_resolved_rdstage_2025": ["Phase III"],
+                "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -111,7 +113,7 @@ class TestExpandTemporalRows:
         assert "Phase III" in stages
 
     def test_candidate_with_only_some_years(self):
-        """Only years with non-null data produce rows."""
+        """Only years with non-null data (from either group) produce rows."""
         df = pd.DataFrame(
             {
                 "vin_candidateid": ["cand-1"],
@@ -119,6 +121,7 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": [None],
                 "new_2024currentrdstage": ["Phase II"],
                 "_resolved_rdstage_2025": ["Phase III"],
+                "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -134,6 +137,7 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": [None],
                 "new_2024currentrdstage": [None],
                 "_resolved_rdstage_2025": ["Phase III"],
+                "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -149,13 +153,14 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": ["Discovery"],
                 "new_2024currentrdstage": ["Preclinical"],
                 "_resolved_rdstage_2025": ["Phase I"],
+                "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
         result = _expand_temporal_rows(df)
-        r2023 = result[result["valid_from"].str.startswith("2023")]
-        r2024 = result[result["valid_from"].str.startswith("2024")]
-        r2025 = result[result["valid_from"].str.startswith("2025")]
+        r2023 = result[result["valid_from"] == "2023-01-01"]
+        r2024 = result[result["valid_from"] == "2024-01-01"]
+        r2025 = result[result["valid_from"] == "2025-01-01"]
         assert r2023["new_currentrdstage"].iloc[0] == "Discovery"
         assert r2024["new_currentrdstage"].iloc[0] == "Preclinical"
         assert r2025["new_currentrdstage"].iloc[0] == "Phase I"
@@ -169,6 +174,7 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": ["Phase I"],
                 "new_2024currentrdstage": ["Phase II"],
                 "_resolved_rdstage_2025": ["Phase III"],
+                "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -182,7 +188,11 @@ class TestExpandTemporalRows:
         assert pd.isna(result.loc[2, "valid_to"])
 
     def test_per_candidate_valid_to_with_gap(self):
-        """Candidate with 2021 and 2024 (gap): valid_to jumps to next populated period."""
+        """Candidate with 2021 and 2024 (gap): valid_to jumps to next populated period.
+
+        With cross-product expansion, the pipeline column at 2025 adds a third
+        boundary even though rdstage is null there.
+        """
         df = pd.DataFrame(
             {
                 "vin_candidateid": ["cand-1"],
@@ -191,16 +201,20 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": [None],
                 "new_2024currentrdstage": ["Phase I"],
                 "_resolved_rdstage_2025": [None],
+                "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
         result = _expand_temporal_rows(df)
         result = result.sort_values("valid_from").reset_index(drop=True)
-        assert len(result) == 2
+        # 3 rows: rdstage {2021, 2024} ∪ pipeline {2025} = {2021, 2024, 2025}
+        assert len(result) == 3
         assert result.loc[0, "valid_from"] == "2021-01-01"
         assert result.loc[0, "valid_to"] == "2024-01-01"
         assert result.loc[1, "valid_from"] == "2024-01-01"
-        assert pd.isna(result.loc[1, "valid_to"])
+        assert result.loc[1, "valid_to"] == "2025-01-01"
+        assert result.loc[2, "valid_from"] == "2025-01-01"
+        assert pd.isna(result.loc[2, "valid_to"])
 
     def test_per_candidate_valid_to_single_year(self):
         """Candidate with only 2025: valid_to = None."""
@@ -211,6 +225,7 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": [None],
                 "new_2024currentrdstage": [None],
                 "_resolved_rdstage_2025": ["Phase III"],
+                "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -227,6 +242,7 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": ["Phase I"],
                 "new_2024currentrdstage": ["Phase II"],
                 "_resolved_rdstage_2025": ["Phase III"],
+                "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -236,11 +252,14 @@ class TestExpandTemporalRows:
             "new_2024currentrdstage",
             "_resolved_rdstage_2025",
             "new_rdstage2021",
+            "new_includeinpipeline",
+            "new_2024includeinpipeline",
+            "new_includeinpipeline2021",
         ]:
             assert col not in result.columns
 
     def test_null_year_produces_no_row(self):
-        """A year with null RD stage produces no row for that year."""
+        """A year with null data in both groups produces no row for that year."""
         df = pd.DataFrame(
             {
                 "vin_candidateid": ["cand-1"],
@@ -248,6 +267,7 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": ["Phase I"],
                 "new_2024currentrdstage": [None],
                 "_resolved_rdstage_2025": ["Phase III"],
+                "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -264,15 +284,20 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": ["Phase I", "Discovery"],
                 "new_2024currentrdstage": ["Phase II", None],
                 "_resolved_rdstage_2025": [None, "Preclinical"],
+                "new_includeinpipeline": [100000000, 100000002],
                 "vin_product": ["Drugs", "Vaccines"],
             }
         )
         result = _expand_temporal_rows(df)
-        # CandA: 2023 + 2024 = 2 rows, CandB: 2023 + 2025 = 2 rows
-        assert len(result) == 4
+        # CandA: 2023 + 2024 + 2025(pipeline) = 3 rows
+        # CandB: 2023 + 2025 = 2 rows
+        cand_a = result[result["vin_candidateid"] == "cand-1"]
+        cand_b = result[result["vin_candidateid"] == "cand-2"]
+        assert len(cand_a) == 3
+        assert len(cand_b) == 2
 
     def test_multiple_candidates_independent_valid_to(self):
-        """Each candidate's valid_to is computed from its own periods."""
+        """Each candidate's valid_to is computed from its own boundaries."""
         df = pd.DataFrame(
             {
                 "vin_candidateid": ["cand-1", "cand-2"],
@@ -280,18 +305,123 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": ["Phase I", "Discovery"],
                 "new_2024currentrdstage": ["Phase II", None],
                 "_resolved_rdstage_2025": [None, "Preclinical"],
+                "new_includeinpipeline": [100000000, 100000002],
                 "vin_product": ["Drugs", "Vaccines"],
             }
         )
         result = _expand_temporal_rows(df)
-        # CandA: 2023 (valid_to=2024), 2024 (valid_to=None)
+        # CandA: 2023, 2024, 2025(pipeline only) -> valid_to chains
         cand_a = result[result["vin_candidateid"] == "cand-1"].sort_values("valid_from")
         assert cand_a.iloc[0]["valid_to"] == "2024-01-01"
-        assert pd.isna(cand_a.iloc[1]["valid_to"])
         # CandB: 2023 (valid_to=2025), 2025 (valid_to=None)
         cand_b = result[result["vin_candidateid"] == "cand-2"].sort_values("valid_from")
         assert cand_b.iloc[0]["valid_to"] == "2025-01-01"
         assert pd.isna(cand_b.iloc[1]["valid_to"])
+
+    def test_cross_product_boundary_years(self):
+        """Candidate with rdstage at 2023+2025 and pipeline at 2021+2024+2025 produces 4 rows."""
+        df = pd.DataFrame(
+            {
+                "vin_candidateid": ["cand-1"],
+                "vin_name": ["CandA"],
+                "new_rdstage2021": [None],
+                "new_2023currentrdstage": ["Phase I"],
+                "new_2024currentrdstage": [None],
+                "_resolved_rdstage_2025": ["Phase II"],
+                "new_includeinpipeline2021": [100000000],
+                "new_2024includeinpipeline": [100000001],
+                "new_includeinpipeline": [100000002],
+                "vin_product": ["Drugs"],
+            }
+        )
+        result = _expand_temporal_rows(df)
+        result = result.sort_values("valid_from").reset_index(drop=True)
+        # Boundaries: union of {2023, 2025} and {2021, 2024, 2025} = {2021, 2023, 2024, 2025}
+        assert len(result) == 4
+        assert list(result["valid_from"]) == [
+            "2021-01-01",
+            "2023-01-01",
+            "2024-01-01",
+            "2025-01-01",
+        ]
+
+    def test_forward_fill_across_groups(self):
+        """At a boundary introduced by pipeline change, rdstage is forward-filled."""
+        df = pd.DataFrame(
+            {
+                "vin_candidateid": ["cand-1"],
+                "vin_name": ["CandA"],
+                "new_rdstage2021": [None],
+                "new_2023currentrdstage": ["Phase I"],
+                "new_2024currentrdstage": [None],
+                "_resolved_rdstage_2025": ["Phase II"],
+                "new_includeinpipeline2021": [100000000],
+                "new_2024includeinpipeline": [100000001],
+                "new_includeinpipeline": [100000002],
+                "vin_product": ["Drugs"],
+            }
+        )
+        result = _expand_temporal_rows(df)
+        result = result.sort_values("valid_from").reset_index(drop=True)
+
+        # 2021: rdstage=None (no rdstage known yet), pipeline=100000000
+        assert pd.isna(result.loc[0, "new_currentrdstage"])
+        assert result.loc[0, "includeinpipeline"] == 100000000
+
+        # 2023: rdstage=Phase I, pipeline=100000000 (forward-fill from 2021)
+        assert result.loc[1, "new_currentrdstage"] == "Phase I"
+        assert result.loc[1, "includeinpipeline"] == 100000000
+
+        # 2024: rdstage=Phase I (forward-fill), pipeline=100000001
+        assert result.loc[2, "new_currentrdstage"] == "Phase I"
+        assert result.loc[2, "includeinpipeline"] == 100000001
+
+        # 2025: rdstage=Phase II, pipeline=100000002
+        assert result.loc[3, "new_currentrdstage"] == "Phase II"
+        assert result.loc[3, "includeinpipeline"] == 100000002
+
+    def test_pipeline_source_columns_dropped(self):
+        """All 3 pipeline source columns are removed from output."""
+        df = pd.DataFrame(
+            {
+                "vin_candidateid": ["cand-1"],
+                "vin_name": ["CandA"],
+                "new_2024currentrdstage": ["Phase I"],
+                "new_includeinpipeline2021": [100000000],
+                "new_2024includeinpipeline": [100000001],
+                "new_includeinpipeline": [100000002],
+                "vin_product": ["Drugs"],
+            }
+        )
+        result = _expand_temporal_rows(df)
+        for col in [
+            "new_includeinpipeline",
+            "new_2024includeinpipeline",
+            "new_includeinpipeline2021",
+        ]:
+            assert col not in result.columns
+
+    def test_null_latest_pipeline_overrides_forward_fill(self):
+        """NULL in new_includeinpipeline (2025) explicitly overrides forward-fill."""
+        df = pd.DataFrame(
+            {
+                "vin_candidateid": ["cand-1"],
+                "vin_name": ["CandA"],
+                "new_2024currentrdstage": ["Phase I"],
+                "_resolved_rdstage_2025": ["Phase II"],
+                "new_includeinpipeline2021": [100000000],
+                "new_2024includeinpipeline": [None],
+                "new_includeinpipeline": [None],
+                "vin_product": ["Drugs"],
+            }
+        )
+        result = _expand_temporal_rows(df)
+        result = result.sort_values("valid_from").reset_index(drop=True)
+        # Boundaries: rd{2024,2025} ∪ pipeline{2021,2025} = {2021,2024,2025}
+        assert len(result) == 3
+        assert result.loc[0, "includeinpipeline"] == 100000000  # 2021
+        assert result.loc[1, "includeinpipeline"] == 100000000  # 2024 (ff from 2021)
+        assert pd.isna(result.loc[2, "includeinpipeline"])  # 2025 (explicit NULL)
 
 
 class TestTransformCandidates:
@@ -313,7 +443,10 @@ class TestTransformCandidates:
             "new_2023currentrdstage": ["Phase I", None, None],
             # FK GUID column for 2025 RD stage (resolved via lookup_tables)
             "_vin_currentrndstage_value": ["guid-1", "guid-2", None],
+            # Pipeline columns (temporal)
             "new_includeinpipeline": [100000000.0, 100000002.0, 100000001.0],
+            "new_2024includeinpipeline": [100000000.0, 100000002.0, 100000001.0],
+            "new_includeinpipeline2021": [100000000.0, 100000002.0, 100000001.0],
             "_vin_captype_value": [
                 "c1746ad3-93d1-f011-bbd3-00224892cefa",
                 "545d63d9-93d1-f011-bbd3-00224892cefa",
@@ -450,11 +583,7 @@ class TestTransformCandidates:
         assert "valid_from" in result.columns
 
     def test_standardizes_product_types(self):
-        df = self._make_input_df(
-            overrides={
-                "new_includeinpipeline": [100000000.0, 100000002.0, 100000000.0],
-            }
-        )
+        df = self._make_input_df()
         lookup = self._make_lookup_tables()
         result, _ = transform_candidates(df, lookup_tables=lookup)
         products = list(result["product"].unique())
@@ -467,11 +596,7 @@ class TestTransformCandidates:
 
     def test_standardizes_rd_stages_via_temporal_expansion(self):
         """RD stages are standardized on the new_currentrdstage column."""
-        df = self._make_input_df(
-            overrides={
-                "new_includeinpipeline": [100000000.0, 100000002.0, 100000000.0],
-            }
-        )
+        df = self._make_input_df()
         lookup = self._make_lookup_tables()
         result, _ = transform_candidates(df, lookup_tables=lookup)
         stages = result["new_currentrdstage"].dropna().unique()
@@ -486,7 +611,6 @@ class TestTransformCandidates:
                 "new_2024currentrdstage": ["Phase I - Biologics", None, None],
                 "new_2023currentrdstage": [None, None, None],
                 "_vin_currentrndstage_value": [None, None, None],
-                "new_includeinpipeline": [100000000.0, 100000002.0, 100000001.0],
             }
         )
         lookup = self._make_lookup_tables()
@@ -507,15 +631,52 @@ class TestTransformCandidates:
         assert "Not applicable " not in pressures
 
     def test_filters_by_includeinpipeline(self):
+        """All candidates are kept; includeinpipeline has correct temporal values;
+        include_in_pipeline boolean is derived correctly."""
         df = self._make_input_df()
         lookup = self._make_lookup_tables()
         result, _ = transform_candidates(df, lookup_tables=lookup)
-        # Candidate C has includeinpipeline=100000001 -> filtered out
-        # Candidates A and B have 100000000 and 100000002 -> kept
+        # All 3 candidates should be present (no hard filtering)
         candidate_names = result["candidate_name"].unique()
         assert "Candidate A" in candidate_names
         assert "Candidate B" in candidate_names
-        assert "Candidate C" not in candidate_names
+        assert "Candidate C" in candidate_names
+        # includeinpipeline column should be present with temporal values
+        assert "includeinpipeline" in result.columns
+        # include_in_pipeline boolean should be derived
+        assert "include_in_pipeline" in result.columns
+        # Candidate A (100000000) -> 1, Candidate B (100000002) -> 1
+        cand_a = result[result["candidate_name"] == "Candidate A"]
+        assert (cand_a["include_in_pipeline"] == 1).all()
+        cand_b = result[result["candidate_name"] == "Candidate B"]
+        assert (cand_b["include_in_pipeline"] == 1).all()
+        # Candidate C (100000001) -> 0
+        cand_c = result[result["candidate_name"] == "Candidate C"]
+        assert (cand_c["include_in_pipeline"] == 0).all()
+
+    def test_statecode_filters_deleted_records(self):
+        """Records with statecode != 0 are excluded."""
+        df = self._make_input_df(overrides={"statecode": [0, 1, 0]})
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
+        candidate_names = result["candidate_name"].unique()
+        assert "Candidate A" in candidate_names
+        assert "Candidate B" not in candidate_names
+        assert "Candidate C" in candidate_names
+
+    def test_null_latest_pipeline_means_excluded(self):
+        """Candidate with NULL new_includeinpipeline gets include_in_pipeline=0."""
+        df = self._make_input_df(
+            overrides={
+                "new_includeinpipeline": [None, 100000000.0, 100000001.0],
+            }
+        )
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
+        cand_a_current = result[
+            (result["candidate_name"] == "Candidate A") & (result["valid_to"].isna())
+        ]
+        assert (cand_a_current["include_in_pipeline"] == 0).all()
 
     def test_temporal_expansion_produces_new_currentrdstage(self):
         """Transform produces new_currentrdstage base column from SCD2 expansion."""
@@ -536,6 +697,9 @@ class TestTransformCandidates:
             "_vin_currentrndstage_value",
             "_resolved_rdstage_2025",
             "new_rdstage2021",
+            "new_includeinpipeline",
+            "new_2024includeinpipeline",
+            "new_includeinpipeline2021",
         ]:
             assert col not in result.columns
 
@@ -555,6 +719,7 @@ class TestTransformCandidates:
         assert "vin_name" not in result.columns
         assert "product" in result.columns
         assert "vin_product" not in result.columns
+        # includeinpipeline is now produced by expansion, not rename
         assert "includeinpipeline" in result.columns
         assert "candidateid" in result.columns
 
@@ -662,5 +827,5 @@ class TestTransformCandidates:
         df = self._make_input_df()
         result, cleaned = transform_candidates(df, lookup_tables=None)
         assert isinstance(result, pd.DataFrame)
-        # _vin_currentrndstage_value should be dropped (in _COLUMNS_TO_DROP)
+        # _vin_currentrndstage_value should be dropped (consumed by expansion)
         assert "_vin_currentrndstage_value" not in result.columns

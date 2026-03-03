@@ -193,7 +193,8 @@ STAR_SCHEMA_MAP = {
         "regulatory_key": "FK:dim_candidate_regulatory.COMPOSITE",
         "phase_key": "FK:dim_phase.phase_name|EXTRACT_PHASE:new_currentrdstage",
         "date_key": "FK:dim_date.full_date|EXTRACT_DATE:valid_from",
-        "is_active_flag": "CASE WHEN statecode = 0 THEN 1 ELSE 0 END",
+        "is_active_flag": "CASE WHEN valid_to IS NULL THEN 1 ELSE 0 END",
+        "include_in_pipeline": "include_in_pipeline",
     },
     "fact_clinical_trial_event": {
         "_source_table": "vin_clinicaltrials",

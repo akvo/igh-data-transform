@@ -59,7 +59,17 @@ def _eval_single_branch_case_when(expr: str, row: dict) -> tuple[bool, Any]:
         condition = actual_val is not None and int(actual_val) == int(check_val)
         return True, int(then_val) if condition else int(else_val)
 
-    # Pattern 2: String results - CASE WHEN col = val THEN 'str' ELSE 'str' END
+    # Pattern 2: IS NULL - CASE WHEN col IS NULL THEN int ELSE int END
+    match = re.match(
+        r"CASE\s+WHEN\s+(\w+)\s+IS\s+NULL\s+THEN\s+(\d+)\s+ELSE\s+(\d+)\s+END",
+        expr,
+        re.IGNORECASE,
+    )
+    if match:
+        col_name, then_val, else_val = match.groups()
+        return True, int(then_val) if row.get(col_name) is None else int(else_val)
+
+    # Pattern 3: String results - CASE WHEN col = val THEN 'str' ELSE 'str' END
     match = re.match(
         r"CASE\s+WHEN\s+(\w+)\s*=\s*(\d+)\s+THEN\s+'([^']+)'\s+ELSE\s+'([^']+)'\s+END", expr, re.IGNORECASE
     )

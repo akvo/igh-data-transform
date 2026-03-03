@@ -104,6 +104,15 @@ max-public-methods = 20     # Max public methods per class (preview rule PLR0904
     "ARG001",    # Allow unused function arguments (fixtures)
     "PLR0913",   # Allow many arguments in test functions
     "PLR6301",   # Allow instance methods (needed for fixtures)
+    "PLR0904",   # Allow many public methods in test classes
+]
+"src/**/tests/**/*.py" = [
+    "S101",      # Allow assert statements in tests
+    "PLR2004",   # Allow magic values in tests
+    "ARG001",    # Allow unused function arguments (fixtures)
+    "PLR0913",   # Allow many arguments in test functions
+    "PLR6301",   # Allow instance methods (needed for fixtures)
+    "PLR0904",   # Allow many public methods in test classes
 ]
 
 # Main scripts can print to stdout

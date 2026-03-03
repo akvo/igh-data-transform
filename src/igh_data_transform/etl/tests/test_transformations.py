@@ -60,6 +60,18 @@ class TestExpressionParsing:
         result = parse_case_when("CASE WHEN statecode = 0 THEN 1 ELSE 0 END", row)
         assert result == 0
 
+    def test_parse_case_when_is_null_true(self):
+        """CASE WHEN col IS NULL returns THEN value when column is None."""
+        row = {"valid_to": None}
+        result = parse_case_when("CASE WHEN valid_to IS NULL THEN 1 ELSE 0 END", row)
+        assert result == 1
+
+    def test_parse_case_when_is_null_false(self):
+        """CASE WHEN col IS NULL returns ELSE value when column has a value."""
+        row = {"valid_to": "2025-01-01"}
+        result = parse_case_when("CASE WHEN valid_to IS NULL THEN 1 ELSE 0 END", row)
+        assert result == 0
+
     def test_parse_case_when_string_then(self):
         """CASE WHEN with string results returns THEN string when true."""
         row = {"vin_type": 909670000}

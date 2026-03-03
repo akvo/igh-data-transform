@@ -17,6 +17,7 @@ pytestmark = pytest.mark.e2e
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _read_table(conn: sqlite3.Connection, table: str) -> pd.DataFrame:
     return pd.read_sql_query(f"SELECT * FROM {table}", conn)  # noqa: S608
 
@@ -32,6 +33,7 @@ def _table_names(conn: sqlite3.Connection) -> set[str]:
 # 1. Completeness
 # ---------------------------------------------------------------------------
 
+
 class TestSilverTransformationCompleteness:
     """Verify the Silver DB was created and contains expected tables."""
 
@@ -44,11 +46,21 @@ class TestSilverTransformationCompleteness:
 
     def test_core_tables_present(self, silver_conn):
         tables = _table_names(silver_conn)
-        expected = {"vin_candidates", "vin_clinicaltrials", "vin_diseases", "vin_rdpriorities"}
+        expected = {
+            "vin_candidates",
+            "vin_clinicaltrials",
+            "vin_diseases",
+            "vin_rdpriorities",
+        }
         assert expected.issubset(tables), f"Missing tables: {expected - tables}"
 
     def test_core_tables_have_rows(self, silver_conn):
-        for table in ["vin_candidates", "vin_clinicaltrials", "vin_diseases", "vin_rdpriorities"]:
+        for table in [
+            "vin_candidates",
+            "vin_clinicaltrials",
+            "vin_diseases",
+            "vin_rdpriorities",
+        ]:
             df = _read_table(silver_conn, table)
             assert len(df) > 0, f"Table {table} is empty"
 
@@ -61,7 +73,9 @@ class TestSilverTransformationCompleteness:
         for table in bronze_tables:
             df = pd.read_sql_query(f"SELECT COUNT(*) AS cnt FROM {table}", bronze_conn)  # noqa: S608
             if df["cnt"].iloc[0] > 0:
-                assert table in silver_tables, f"Non-empty Bronze table '{table}' missing from Silver"
+                assert table in silver_tables, (
+                    f"Non-empty Bronze table '{table}' missing from Silver"
+                )
 
         bronze_conn.close()
 
@@ -69,6 +83,7 @@ class TestSilverTransformationCompleteness:
 # ---------------------------------------------------------------------------
 # 2. Candidates
 # ---------------------------------------------------------------------------
+
 
 class TestCandidatesTransformation:
     """Verify vin_candidates transformations."""
@@ -80,7 +95,9 @@ class TestCandidatesTransformation:
     def test_metadata_columns_dropped(self):
         dropped = {"row_id", "json_response", "sync_time"}
         present = set(self.df.columns)
-        assert dropped.isdisjoint(present), f"Metadata columns not dropped: {dropped & present}"
+        assert dropped.isdisjoint(present), (
+            f"Metadata columns not dropped: {dropped & present}"
+        )
 
     def test_columns_renamed(self):
         assert "candidate_name" in self.df.columns
@@ -88,12 +105,13 @@ class TestCandidatesTransformation:
         assert "vin_name" not in self.df.columns
         assert "vin_candidateid" not in self.df.columns
 
-    def test_pipeline_filter_applied(self):
-        """Only includeinpipeline 100000000 or 100000002 should remain."""
+    def test_pipeline_column_present(self):
+        """includeinpipeline column is present with all codes (no hard filtering)."""
         assert "includeinpipeline" in self.df.columns
-        allowed = {100000000, 100000002}
-        actual = set(self.df["includeinpipeline"].dropna().astype(int).unique())
-        assert actual.issubset(allowed), f"Unexpected includeinpipeline values: {actual - allowed}"
+        assert "include_in_pipeline" in self.df.columns
+        # include_in_pipeline should be 0 or 1
+        vals = set(self.df["include_in_pipeline"].dropna().astype(int).unique())
+        assert vals.issubset({0, 1}), f"Unexpected include_in_pipeline values: {vals}"
 
     def test_temporal_expansion_produces_rd_stage(self):
         assert "RD_stage" in self.df.columns
@@ -106,6 +124,7 @@ class TestCandidatesTransformation:
 # ---------------------------------------------------------------------------
 # 3. Clinical Trials
 # ---------------------------------------------------------------------------
+
 
 class TestClinicalTrialsTransformation:
     """Verify vin_clinicaltrials transformations."""
@@ -122,10 +141,19 @@ class TestClinicalTrialsTransformation:
 
     def test_phase_standardized(self):
         known_phases = {
-            "Phase I", "Phase II", "Phase III", "Phase IV",
-            "Phase I/II", "Phase II/III", "Phase III/IV",
-            "Observational", "Interventional", "Retrospective", "CHIM",
-            "N/A", "Unknown",
+            "Phase I",
+            "Phase II",
+            "Phase III",
+            "Phase IV",
+            "Phase I/II",
+            "Phase II/III",
+            "Phase III/IV",
+            "Observational",
+            "Interventional",
+            "Retrospective",
+            "CHIM",
+            "N/A",
+            "Unknown",
         }
         actual = set(self.df["ctphase"].dropna().unique())
         unexpected = actual - known_phases
@@ -139,8 +167,13 @@ class TestClinicalTrialsTransformation:
 
     def test_age_groups_standardized(self):
         known_ages = {
-            "Neonates", "Infants", "Children", "Adolescents",
-            "Young Adults 18 - 45", "Older adults: 45 >", "Unknown",
+            "Neonates",
+            "Infants",
+            "Children",
+            "Adolescents",
+            "Young Adults 18 - 45",
+            "Older adults: 45 >",
+            "Unknown",
         }
         actual = set(self.df["age"].dropna().unique())
         unexpected = actual - known_ages
@@ -155,6 +188,7 @@ class TestClinicalTrialsTransformation:
 # ---------------------------------------------------------------------------
 # 4. Diseases
 # ---------------------------------------------------------------------------
+
 
 class TestDiseasesTransformation:
     """Verify vin_diseases transformations."""
@@ -179,6 +213,7 @@ class TestDiseasesTransformation:
 # ---------------------------------------------------------------------------
 # 5. Priorities
 # ---------------------------------------------------------------------------
+
 
 class TestPrioritiesTransformation:
     """Verify vin_rdpriorities transformations."""
@@ -210,6 +245,7 @@ class TestPrioritiesTransformation:
 # ---------------------------------------------------------------------------
 # 6. Option Sets
 # ---------------------------------------------------------------------------
+
 
 class TestOptionSetTransformation:
     """Verify option set tables in Silver."""
@@ -248,6 +284,7 @@ class TestOptionSetTransformation:
 # 7. Data Integrity
 # ---------------------------------------------------------------------------
 
+
 class TestDataIntegrity:
     """Cross-table data integrity checks."""
 
@@ -275,7 +312,9 @@ class TestDataIntegrity:
 
     # -- Referential integrity --
 
-    def test_clinical_trials_reference_valid_candidates(self, silver_conn, bronze_db_path):
+    def test_clinical_trials_reference_valid_candidates(
+        self, silver_conn, bronze_db_path
+    ):
         """candidate_value in clinical trials must reference a candidateid that
         exists in the Bronze source.  Silver vin_candidates is filtered by
         ``includeinpipeline``, so we validate against the unfiltered Bronze set."""
@@ -286,7 +325,8 @@ class TestDataIntegrity:
 
         bronze_conn = sqlite3.connect(str(bronze_db_path))
         bronze_cand = pd.read_sql_query(
-            "SELECT vin_candidateid FROM vin_candidates", bronze_conn,
+            "SELECT vin_candidateid FROM vin_candidates",
+            bronze_conn,
         )
         bronze_conn.close()
 
@@ -332,9 +372,15 @@ class TestDataIntegrity:
 
     # -- Temporal consistency --
 
-    @pytest.mark.parametrize("table", [
-        "vin_candidates", "vin_clinicaltrials", "vin_diseases", "vin_rdpriorities",
-    ])
+    @pytest.mark.parametrize(
+        "table",
+        [
+            "vin_candidates",
+            "vin_clinicaltrials",
+            "vin_diseases",
+            "vin_rdpriorities",
+        ],
+    )
     def test_valid_from_not_null(self, silver_conn, table):
         df = _read_table(silver_conn, table)
         if "valid_from" not in df.columns:
@@ -342,9 +388,14 @@ class TestDataIntegrity:
         nulls = df["valid_from"].isna().sum()
         assert nulls == 0, f"{nulls} null valid_from values in {table}"
 
-    @pytest.mark.parametrize("table", [
-        "vin_clinicaltrials", "vin_diseases", "vin_rdpriorities",
-    ])
+    @pytest.mark.parametrize(
+        "table",
+        [
+            "vin_clinicaltrials",
+            "vin_diseases",
+            "vin_rdpriorities",
+        ],
+    )
     def test_current_records_exist(self, silver_conn, table):
         """At least some records should have valid_to IS NULL (current).
 
@@ -357,9 +408,15 @@ class TestDataIntegrity:
         current = df["valid_to"].isna().sum()
         assert current > 0, f"No current records (valid_to IS NULL) in {table}"
 
-    @pytest.mark.parametrize("table", [
-        "vin_candidates", "vin_clinicaltrials", "vin_diseases", "vin_rdpriorities",
-    ])
+    @pytest.mark.parametrize(
+        "table",
+        [
+            "vin_candidates",
+            "vin_clinicaltrials",
+            "vin_diseases",
+            "vin_rdpriorities",
+        ],
+    )
     def test_no_invalid_temporal_ranges(self, silver_conn, table):
         """No records where valid_to < valid_from."""
         df = _read_table(silver_conn, table)

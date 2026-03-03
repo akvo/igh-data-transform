@@ -15,10 +15,15 @@ from igh_data_transform.transformations.cleanup import (
 
 # Temporal source columns consumed by expansion
 _TEMPORAL_SOURCE_COLS = [
+    # RD stage
     "new_rdstage2021",
     "new_2023currentrdstage",
     "new_2024currentrdstage",
     "_vin_currentrndstage_value",
+    # Include-in-pipeline
+    "new_includeinpipeline",
+    "new_2024includeinpipeline",
+    "new_includeinpipeline2021",
 ]
 
 _PRODUCT_TYPE_MAPPING = {
@@ -127,52 +132,91 @@ def _resolve_rdstage_fk(
 
 
 def _expand_temporal_rows(df: pd.DataFrame) -> pd.DataFrame:
-    """Create time-versioned rows from year-specific RD stage columns.
+    """Create time-versioned rows via cross-product of temporal groups.
 
-    Produces one row per candidate per year where RD stage data exists.
-    valid_to = start of candidate's next populated period (None for latest).
+    Handles two temporal groups: RD stage (4 year-columns) and
+    includeinpipeline (3 year-columns).  For each candidate the union of
+    boundary years from both groups is collected and at each boundary the
+    most recent known value for each group is forward-filled.
+
+    Produces one row per candidate per boundary year.
+    valid_to = start of candidate's next boundary (None for latest).
     Must be called before column renaming (uses original bronze names).
     """
-    year_configs = [
+    _rdstage_cols = [
         ("new_rdstage2021", "2021-01-01"),
         ("new_2023currentrdstage", "2023-01-01"),
         ("new_2024currentrdstage", "2024-01-01"),
         ("_resolved_rdstage_2025", "2025-01-01"),
     ]
 
-    frames = []
-    for src_col, valid_from in year_configs:
-        if src_col not in df.columns:
-            continue
-        year_df = df[df[src_col].notna()].copy()
-        if year_df.empty:
-            continue
-        year_df["new_currentrdstage"] = year_df[src_col]
-        year_df["valid_from"] = valid_from
-        frames.append(year_df)
+    _pipeline_cols = [
+        ("new_includeinpipeline2021", "2021-01-01"),
+        ("new_2024includeinpipeline", "2024-01-01"),
+        ("new_includeinpipeline", "2025-01-01"),
+    ]
 
-    if not frames:
-        df_result = df.copy()
-        df_result["new_currentrdstage"] = None
-        df_result["valid_from"] = None
-        df_result["valid_to"] = None
-        cols_to_drop = _TEMPORAL_SOURCE_COLS + ["_resolved_rdstage_2025"]
-        return df_result.drop(
-            columns=[c for c in cols_to_drop if c in df_result.columns]
-        )
+    def _year_map(row: pd.Series, configs: list[tuple[str, str]]) -> dict:
+        """Build {valid_from: value} for non-null year columns."""
+        return {
+            vf: row[col]
+            for col, vf in configs
+            if col in row.index and pd.notna(row[col])
+        }
 
-    df_expand = pd.concat(frames, ignore_index=True)
-    df_expand = df_expand.sort_values(by=["vin_candidateid", "valid_from"])
+    def _forward_fill(year_map: dict, boundaries: list[str]) -> list:
+        """At each boundary return the most-recent known value."""
+        result = []
+        last = None
+        for b in boundaries:
+            if b in year_map:
+                last = year_map[b]
+            result.append(last)
+        return result
 
-    # Per-candidate valid_to = next row's valid_from (None for last)
-    df_expand["valid_to"] = df_expand.groupby("vin_candidateid")["valid_from"].shift(-1)
-
-    # Drop consumed columns
+    rows_out: list[dict] = []
     cols_to_drop = _TEMPORAL_SOURCE_COLS + ["_resolved_rdstage_2025"]
-    df_expand = df_expand.drop(
-        columns=[c for c in cols_to_drop if c in df_expand.columns]
-    )
-    return df_expand
+    # Columns to carry through (everything except temporal source cols)
+    keep_cols = [c for c in df.columns if c not in cols_to_drop]
+
+    for _, row in df.iterrows():
+        rd_map = _year_map(row, _rdstage_cols)
+        pl_map = _year_map(row, _pipeline_cols)
+
+        # NULL in the latest pipeline column means "explicitly removed"
+        _latest_pl_col = "new_includeinpipeline"
+        _latest_pl_date = "2025-01-01"
+        if (
+            _latest_pl_col in row.index
+            and pd.isna(row[_latest_pl_col])
+            and _latest_pl_date not in pl_map
+            and pl_map  # only if there are older pipeline values to override
+        ):
+            pl_map[_latest_pl_date] = None
+
+        boundaries = sorted(set(list(rd_map.keys()) + list(pl_map.keys())))
+
+        if not boundaries:
+            out = {c: row[c] for c in keep_cols}
+            out["new_currentrdstage"] = None
+            out["includeinpipeline"] = None
+            out["valid_from"] = None
+            out["valid_to"] = None
+            rows_out.append(out)
+            continue
+
+        rd_vals = _forward_fill(rd_map, boundaries)
+        pl_vals = _forward_fill(pl_map, boundaries)
+
+        for i, boundary in enumerate(boundaries):
+            out = {c: row[c] for c in keep_cols}
+            out["new_currentrdstage"] = rd_vals[i]
+            out["includeinpipeline"] = pl_vals[i]
+            out["valid_from"] = boundary
+            out["valid_to"] = boundaries[i + 1] if i + 1 < len(boundaries) else None
+            rows_out.append(out)
+
+    return pd.DataFrame(rows_out)
 
 
 def transform_candidates(
@@ -190,6 +234,10 @@ def transform_candidates(
     Returns:
         Tuple of (transformed DataFrame, dict of cleaned option sets).
     """
+    # 0. Filter deleted records (statecode != 0)
+    if "statecode" in df.columns:
+        df = df[df["statecode"] == 0].copy()
+
     # 1. Resolve FK for 2025 RD stage
     if lookup_tables and "vin_rdstageproducts" in lookup_tables:
         df = _resolve_rdstage_fk(df, lookup_tables["vin_rdstageproducts"])
@@ -229,12 +277,12 @@ def transform_candidates(
             df, "approvingauthority", _APPROVING_AUTHORITY_CONSOLIDATION
         )
 
-    # 7. Filter to pipeline-included candidates
+    # 7. Derive boolean include_in_pipeline from option set codes
     if "includeinpipeline" in df.columns:
-        df = df[
-            (df["includeinpipeline"] == 100000000)
-            | (df["includeinpipeline"] == 100000002)
-        ].copy()
+        _pipeline_codes = {100000000, 100000002}
+        df["include_in_pipeline"] = (
+            df["includeinpipeline"].isin(_pipeline_codes).astype(int)
+        )
 
     # 8. Post-filter consolidations
     if "indicationtype" in df.columns:
