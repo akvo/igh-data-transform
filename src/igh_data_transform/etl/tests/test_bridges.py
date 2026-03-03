@@ -6,7 +6,12 @@ import pytest
 
 from config import schema_map
 from src import bridges as bridges_mod
-from src.bridges import transform_bridge, transform_delimited_bridge, transform_union_bridge
+from src.bridges import (
+    parse_trial_locations,
+    transform_bridge,
+    transform_delimited_bridge,
+    transform_union_bridge,
+)
 from src.transformer import Transformer
 
 
@@ -317,4 +322,246 @@ class TestUnionBridgeDeveloperLocation:
 
         assert result == [
             {"candidate_key": 1, "country_key": 10, "location_scope": "Developer Location"},
+        ]
+
+
+# ---------------------------------------------------------------------------
+# Trial location parsing (unit tests for parse_trial_locations helper)
+# ---------------------------------------------------------------------------
+
+# Minimal country cache matching dim_geography for testing
+_TRIAL_COUNTRY_CACHE = {
+    "India": 1,
+    "Egypt": 2,
+    "United States of America": 3,
+    "United Kingdom": 4,
+    "Thailand": 5,
+    "Kuwait": 6,
+    "Kazakhstan": 7,
+    "Canada": 8,
+    "Colombia": 9,
+    "France": 10,
+}
+
+
+class TestParseTrialLocations:
+    """Unit tests for the parse_trial_locations helper."""
+
+    def test_simple_country(self):
+        result = parse_trial_locations("India", _TRIAL_COUNTRY_CACHE)
+        assert result == ["India"]
+
+    def test_alias_resolution(self):
+        result = parse_trial_locations("USA", _TRIAL_COUNTRY_CACHE)
+        assert result == ["United States of America"]
+
+    def test_case_insensitive(self):
+        result = parse_trial_locations("thailand", _TRIAL_COUNTRY_CACHE)
+        assert result == ["Thailand"]
+
+    def test_pipe_delimited(self):
+        result = parse_trial_locations("India|Egypt", _TRIAL_COUNTRY_CACHE)
+        assert result == ["India", "Egypt"]
+
+    def test_semicolon_delimited(self):
+        result = parse_trial_locations("Kuwait;Kazakhstan", _TRIAL_COUNTRY_CACHE)
+        assert result == ["Kuwait", "Kazakhstan"]
+
+    def test_address_extraction(self):
+        result = parse_trial_locations(
+            "Mount Sinai Hospital, Toronto, Ontario, Canada",
+            _TRIAL_COUNTRY_CACHE,
+        )
+        assert result == ["Canada"]
+
+    def test_unknown_skipped(self):
+        result = parse_trial_locations("Unknown", _TRIAL_COUNTRY_CACHE)
+        assert result == []
+
+    def test_empty_string(self):
+        result = parse_trial_locations("", _TRIAL_COUNTRY_CACHE)
+        assert result == []
+
+    def test_dedup_within_text(self):
+        result = parse_trial_locations("India|India", _TRIAL_COUNTRY_CACHE)
+        assert result == ["India"]
+
+    def test_parenthetical_country(self):
+        result = parse_trial_locations("Hôpital Necker (France)", _TRIAL_COUNTRY_CACHE)
+        assert result == ["France"]
+
+    def test_alias_columbia_typo(self):
+        """'Columbia' (common misspelling) resolves to 'Colombia'."""
+        result = parse_trial_locations("Columbia", _TRIAL_COUNTRY_CACHE)
+        assert result == ["Colombia"]
+
+
+class TestUnionBridgeTrialLocation:
+    """Test Trial Location sourced from vin_clinicaltrials via parse_trial_locations."""
+
+    @pytest.fixture
+    def transformer(self):
+        """Create transformer with mocked extractor and caches."""
+        mock_extractor = MagicMock()
+        t = Transformer(mock_extractor)
+        t._dim_caches["dim_candidate_core"] = {"cand-1": 1, "cand-2": 2}
+        t._dim_caches["dim_geography_by_country_name"] = {
+            "India": 10,
+            "Egypt": 11,
+            "United States of America": 12,
+            "Thailand": 13,
+            "Canada": 14,
+        }
+        return t
+
+    def _source_def(self):
+        return {
+            "table": "vin_clinicaltrials",
+            "candidate_col": "candidate_value",
+            "country_col": "locations",
+            "location_scope": "Trial Location",
+            "parse_trial_locations": True,
+        }
+
+    def _config(self):
+        return {
+            "_source_table": "UNION",
+            "_pk": None,
+            "_special": {"union_sources": [self._source_def()]},
+            "candidate_key": "FK:dim_candidate_core.candidateid|candidate_col",
+            "country_key": "FK:dim_geography.vin_countryid|country_col",
+            "location_scope": "LITERAL:location_scope",
+        }
+
+    def test_simple_country_name(self, transformer):
+        """Simple country name produces one bridge row."""
+        transformer.extractor.extract_table.return_value = [
+            {"candidate_value": "cand-1", "locations": "India"},
+        ]
+        result = transform_union_bridge(
+            transformer,
+            "bridge_candidate_geography",
+            self._config(),
+            self._config()["_special"],
+        )
+        assert result == [
+            {"candidate_key": 1, "country_key": 10, "location_scope": "Trial Location"},
+        ]
+
+    def test_alias_resolution(self, transformer):
+        """'USA' resolves to 'United States of America'."""
+        transformer.extractor.extract_table.return_value = [
+            {"candidate_value": "cand-1", "locations": "USA"},
+        ]
+        result = transform_union_bridge(
+            transformer,
+            "bridge_candidate_geography",
+            self._config(),
+            self._config()["_special"],
+        )
+        assert result == [
+            {"candidate_key": 1, "country_key": 12, "location_scope": "Trial Location"},
+        ]
+
+    def test_case_insensitive(self, transformer):
+        """Case-insensitive matching works."""
+        transformer.extractor.extract_table.return_value = [
+            {"candidate_value": "cand-1", "locations": "thailand"},
+        ]
+        result = transform_union_bridge(
+            transformer,
+            "bridge_candidate_geography",
+            self._config(),
+            self._config()["_special"],
+        )
+        assert result == [
+            {"candidate_key": 1, "country_key": 13, "location_scope": "Trial Location"},
+        ]
+
+    def test_pipe_delimited(self, transformer):
+        """Pipe-delimited locations produce multiple entries."""
+        transformer.extractor.extract_table.return_value = [
+            {"candidate_value": "cand-1", "locations": "India|Egypt"},
+        ]
+        result = transform_union_bridge(
+            transformer,
+            "bridge_candidate_geography",
+            self._config(),
+            self._config()["_special"],
+        )
+        assert len(result) == 2
+        assert {"candidate_key": 1, "country_key": 10, "location_scope": "Trial Location"} in result
+        assert {"candidate_key": 1, "country_key": 11, "location_scope": "Trial Location"} in result
+
+    def test_semicolon_delimited(self, transformer):
+        """Semicolon-delimited locations produce multiple entries."""
+        transformer.extractor.extract_table.return_value = [
+            {"candidate_value": "cand-1", "locations": "India;Egypt"},
+        ]
+        result = transform_union_bridge(
+            transformer,
+            "bridge_candidate_geography",
+            self._config(),
+            self._config()["_special"],
+        )
+        assert len(result) == 2
+
+    def test_address_extraction(self, transformer):
+        """Address-like string extracts country from last comma-separated part."""
+        transformer.extractor.extract_table.return_value = [
+            {
+                "candidate_value": "cand-1",
+                "locations": "Mount Sinai Hospital, Toronto, Ontario, Canada",
+            },
+        ]
+        result = transform_union_bridge(
+            transformer,
+            "bridge_candidate_geography",
+            self._config(),
+            self._config()["_special"],
+        )
+        assert result == [
+            {"candidate_key": 1, "country_key": 14, "location_scope": "Trial Location"},
+        ]
+
+    def test_unknown_skipped(self, transformer):
+        """'Unknown' locations produce no entries."""
+        transformer.extractor.extract_table.return_value = [
+            {"candidate_value": "cand-1", "locations": "Unknown"},
+        ]
+        result = transform_union_bridge(
+            transformer,
+            "bridge_candidate_geography",
+            self._config(),
+            self._config()["_special"],
+        )
+        assert result == []
+
+    def test_null_locations_skipped(self, transformer):
+        """None locations produce no entries."""
+        transformer.extractor.extract_table.return_value = [
+            {"candidate_value": "cand-1", "locations": None},
+        ]
+        result = transform_union_bridge(
+            transformer,
+            "bridge_candidate_geography",
+            self._config(),
+            self._config()["_special"],
+        )
+        assert result == []
+
+    def test_deduplication(self, transformer):
+        """Same candidate+country from multiple trials produces one row."""
+        transformer.extractor.extract_table.return_value = [
+            {"candidate_value": "cand-1", "locations": "India"},
+            {"candidate_value": "cand-1", "locations": "India"},
+        ]
+        result = transform_union_bridge(
+            transformer,
+            "bridge_candidate_geography",
+            self._config(),
+            self._config()["_special"],
+        )
+        assert result == [
+            {"candidate_key": 1, "country_key": 10, "location_scope": "Trial Location"},
         ]

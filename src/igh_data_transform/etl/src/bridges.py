@@ -10,8 +10,10 @@ Handles transformation of bridge tables including:
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING
 
+from config.country_aliases import COUNTRY_ALIASES
 from config.schema_map import STAR_SCHEMA_MAP
 
 if TYPE_CHECKING:
@@ -90,6 +92,93 @@ def resolve_bridge_fk(transformer: Transformer, fk_expr: str, row: dict) -> int 
     return transformer.lookup_dimension_key(dim_table, lookup_val)
 
 
+def parse_trial_locations(text: str, country_name_cache: dict[str, int]) -> list[str]:
+    """Parse country names from a trial locations text field.
+
+    Splits on ``|`` and ``;`` delimiters, applies aliases, and attempts
+    to extract country names from address-like strings.
+
+    Args:
+        text: Raw locations string (e.g. "India|Egypt" or
+              "Mount Sinai Hospital, Toronto, Ontario, Canada").
+        country_name_cache: Mapping of canonical country name -> key
+              (from dim_geography_by_country_name).
+
+    Returns:
+        Deduplicated list of canonical country names found in ``country_name_cache``.
+    """
+    # Build case-insensitive reverse lookup
+    lower_to_canonical: dict[str, str] = {name.lower(): name for name in country_name_cache}
+    # Also index aliases (case-insensitive)
+    alias_lower: dict[str, str | None] = {k.lower(): v for k, v in COUNTRY_ALIASES.items()}
+
+    matched: list[str] = []
+    seen: set[str] = set()
+
+    for raw_segment in re.split(r"[|;]", text):
+        stripped = raw_segment.strip()
+        if not stripped:
+            continue
+
+        resolved = _lookup_country_name(stripped.lower(), lower_to_canonical, alias_lower)
+        if resolved is None and "," in stripped:
+            # Address-like: "City, State, Country" — try last part
+            last_part = stripped.rsplit(",", 1)[-1].strip()
+            resolved = _lookup_country_name(last_part.lower(), lower_to_canonical, alias_lower)
+        if resolved is None:
+            # Try text inside parentheses: "Hospital Name (Country)"
+            paren_match = re.search(r"\(([^)]+)\)", stripped)
+            if paren_match:
+                inner = paren_match.group(1).strip()
+                resolved = _lookup_country_name(inner.lower(), lower_to_canonical, alias_lower)
+
+        if resolved and resolved not in seen:
+            seen.add(resolved)
+            matched.append(resolved)
+
+    return matched
+
+
+def _lookup_country_name(
+    text_lower: str,
+    lower_to_canonical: dict[str, str],
+    alias_lower: dict[str, str | None],
+) -> str | None:
+    """Resolve a lowered string to a canonical country name via alias or direct match."""
+    if text_lower in alias_lower:
+        aliased = alias_lower[text_lower]
+        if aliased is None:
+            return None
+        return lower_to_canonical.get(aliased.lower())
+    return lower_to_canonical.get(text_lower)
+
+
+def _collect_trial_location_rows(transformer: Transformer, source_def: dict) -> list[dict]:
+    """Collect bridge rows from free-text trial locations."""
+    source_table = source_def["table"]
+    candidate_col = source_def["candidate_col"]
+    country_col = source_def["country_col"]
+    location_scope = source_def["location_scope"]
+    country_name_cache = transformer._dim_caches.get("dim_geography_by_country_name", {})
+
+    rows: list[dict] = []
+    for row in transformer.extractor.extract_table(source_table):
+        candidate_id = row.get(candidate_col)
+        locations_text = row.get(country_col)
+        candidate_key = transformer.lookup_dimension_key("dim_candidate_core", candidate_id)
+        if candidate_key is None or not locations_text:
+            continue
+        for country_name in parse_trial_locations(locations_text, country_name_cache):
+            country_key = country_name_cache.get(country_name)
+            if country_key is not None:
+                rows.append({
+                    "candidate_key": candidate_key,
+                    "country_key": country_key,
+                    "location_scope": location_scope,
+                })
+    return rows
+
+
 def transform_union_bridge(transformer: Transformer, table_name: str, _config: dict, special: dict) -> list[dict]:
     """
     Transform bridge table from multiple source tables (UNION).
@@ -107,6 +196,10 @@ def transform_union_bridge(transformer: Transformer, table_name: str, _config: d
     transformed = []
 
     for source_def in union_sources:
+        if source_def.get("parse_trial_locations"):
+            transformed.extend(_collect_trial_location_rows(transformer, source_def))
+            continue
+
         source_table = source_def["table"]
         candidate_col = source_def["candidate_col"]
         country_col = source_def["country_col"]
@@ -119,17 +212,14 @@ def transform_union_bridge(transformer: Transformer, table_name: str, _config: d
             # Resolve candidate key
             candidate_key = transformer.lookup_dimension_key("dim_candidate_core", candidate_id)
 
-            # Resolve country key (might need optionset lookup for trial locations)
+            # Resolve country key (might need optionset lookup)
             if source_def.get("optionset_lookup"):
-                # Option code -> country name via optionset
                 optionset_name = source_def["optionset_lookup"]
                 country_name = transformer.extractor.lookup_optionset(optionset_name, country_ref)
                 if country_name is None:
                     continue
-                # Country name -> country_key via secondary cache
                 country_key = transformer._dim_caches.get("dim_geography_by_country_name", {}).get(country_name)
             elif source_def.get("country_name_lookup"):
-                # country_ref is already a country name — look up directly
                 country_key = transformer._dim_caches.get("dim_geography_by_country_name", {}).get(country_ref)
             else:
                 country_key = transformer.lookup_dimension_key("dim_geography", country_ref)

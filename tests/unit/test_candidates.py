@@ -515,8 +515,8 @@ class TestExpandTemporalRows:
         assert result.loc[3, "includeinpipeline"] == 100000000
         assert result.loc[4, "includeinpipeline"] == 100000001
 
-    def test_null_latest_pipeline_overrides_forward_fill(self):
-        """NULL in new_includeinpipeline (2025) explicitly overrides forward-fill."""
+    def test_null_latest_pipeline_forward_fills_previous_value(self):
+        """NULL in new_includeinpipeline (2025) forward-fills from last known value."""
         df = pd.DataFrame(
             {
                 "vin_candidateid": ["cand-1"],
@@ -531,11 +531,11 @@ class TestExpandTemporalRows:
         )
         result = _expand_temporal_rows(df)
         result = result.sort_values("valid_from").reset_index(drop=True)
-        # Boundaries: rd{2024,2025} ∪ pipeline{2021,2025} = {2021,2024,2025}
+        # Boundaries: rd{2024,2025} ∪ pipeline{2021} = {2021,2024,2025}
         assert len(result) == 3
         assert result.loc[0, "includeinpipeline"] == 100000000  # 2021
         assert result.loc[1, "includeinpipeline"] == 100000000  # 2024 (ff from 2021)
-        assert pd.isna(result.loc[2, "includeinpipeline"])  # 2025 (explicit NULL)
+        assert result.loc[2, "includeinpipeline"] == 100000000  # 2025 (ff from 2021)
 
     def test_2019_rdstage_column_contributes_boundary(self):
         """2019-01-01 appears in valid_from when vin_2019stagepcr is set."""
@@ -828,11 +828,11 @@ class TestTransformCandidates:
             (result["candidate_name"] == "Candidate A") & (result["valid_to"].isna())
         ]
         assert (cand_a_cur["include_in_pipeline"] == 1).all()
-        # Candidate B: current pipeline=100000002 -> 1
+        # Candidate B: current pipeline=100000002 -> 0 (only 100000000 is "in pipeline")
         cand_b_cur = result[
             (result["candidate_name"] == "Candidate B") & (result["valid_to"].isna())
         ]
-        assert (cand_b_cur["include_in_pipeline"] == 1).all()
+        assert (cand_b_cur["include_in_pipeline"] == 0).all()
         # Candidate B at 2023 boundary: "No" -> 100000001 -> 0
         cand_b_2023 = result[
             (result["candidate_name"] == "Candidate B")
@@ -855,8 +855,8 @@ class TestTransformCandidates:
         assert "Candidate B" not in candidate_names
         assert "Candidate C" in candidate_names
 
-    def test_null_latest_pipeline_means_excluded(self):
-        """Candidate with NULL new_includeinpipeline gets include_in_pipeline=0."""
+    def test_null_latest_pipeline_forward_fills_to_included(self):
+        """Candidate with NULL new_includeinpipeline forward-fills from last known Yes value."""
         df = self._make_input_df(
             overrides={
                 "new_includeinpipeline": [None, 100000000.0, 100000001.0],
@@ -867,7 +867,8 @@ class TestTransformCandidates:
         cand_a_current = result[
             (result["candidate_name"] == "Candidate A") & (result["valid_to"].isna())
         ]
-        assert (cand_a_current["include_in_pipeline"] == 0).all()
+        # Last known value is 100000000 (2024), forward-filled through NULL 2025
+        assert (cand_a_current["include_in_pipeline"] == 1).all()
 
     def test_temporal_expansion_produces_new_currentrdstage(self):
         """Transform produces new_currentrdstage base column from SCD2 expansion."""

@@ -234,11 +234,11 @@ STAR_SCHEMA_MAP = {
         "_special": {
             "union_sources": [
                 {
-                    "table": "_junction_vin_candidates_new_clinicaltrialgeographicallocation",
-                    "candidate_col": "entity_id",
-                    "country_col": "option_code",  # This is an optionset code, not country ID
+                    "table": "vin_clinicaltrials",
+                    "candidate_col": "candidate_value",
+                    "country_col": "locations",
                     "location_scope": "Trial Location",
-                    "optionset_lookup": "new_clinicaltrialgeographicallocation",
+                    "parse_trial_locations": True,
                 },
                 {
                     "table": "_junction_vin_candidates_new_targetcountry",

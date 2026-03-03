@@ -2,6 +2,7 @@
 
 import pandas as pd
 
+from igh_data_transform.etl.config.country_aliases import COUNTRY_ALIASES
 from igh_data_transform.transformations.cleanup import (
     drop_columns_by_name,
     drop_empty_columns,
@@ -34,18 +35,8 @@ _COLUMN_RENAMES = {
     "vin_organisationtype": "org_type",
 }
 
-# Source values in accounts.address1_country that don't match vin_countries.vin_name.
-_COUNTRY_ALIASES = {
-    "Türkiye": "Turkey",
-    "United States": "United States of America",
-    "Korea": "South Korea",
-    "Korea, Republic of": "South Korea",
-    "The Netherlands": "Netherlands",
-    "United Kindgom": "United Kingdom",  # typo in source data
-    "Macedonia": "North Macedonia",
-    "Northern Ireland": "United Kingdom",
-    "Not specified": None,
-}
+# Alias dict used by _resolve_country below.
+_COUNTRY_ALIASES = COUNTRY_ALIASES
 
 
 def _enrich_from_accounts(

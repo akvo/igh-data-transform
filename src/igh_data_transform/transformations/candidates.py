@@ -209,17 +209,6 @@ def _expand_temporal_rows(df: pd.DataFrame) -> pd.DataFrame:
         rd_map = _year_map(row, _rdstage_cols)
         pl_map = _year_map(row, _pipeline_cols)
 
-        # NULL in the latest pipeline column means "explicitly removed"
-        _latest_pl_col = "new_includeinpipeline"
-        _latest_pl_date = "2025-01-01"
-        if (
-            _latest_pl_col in row.index
-            and pd.isna(row[_latest_pl_col])
-            and _latest_pl_date not in pl_map
-            and pl_map  # only if there are older pipeline values to override
-        ):
-            pl_map[_latest_pl_date] = None
-
         boundaries = sorted(set(list(rd_map.keys()) + list(pl_map.keys())))
 
         if not boundaries:
@@ -308,7 +297,7 @@ def transform_candidates(
 
     # 7. Derive boolean include_in_pipeline from option set codes
     if "includeinpipeline" in df.columns:
-        _pipeline_codes = {100000000, 100000002}
+        _pipeline_codes = {100000000}
         df["include_in_pipeline"] = (
             df["includeinpipeline"].isin(_pipeline_codes).astype(int)
         )
