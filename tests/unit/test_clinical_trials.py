@@ -387,38 +387,71 @@ class TestTransformClinicalTrials:
     def _make_option_sets(self):
         """Create option set dict with vin_ctstatus."""
         return {
-            "_optionset_vin_ctstatus": pd.DataFrame({
-                "code": [
-                    100000001, 100000002, 100000003, 100000004,
-                    100000005, 100000006,
-                    909670000, 909670001, 909670002, 909670003,
-                    909670004, 909670006, 909670007,
-                ],
-                "label": [
-                    "Planned", "Recruiting", "Not yet recruiting",
-                    "Active, not recruiting", "Enrolling by invitation",
-                    "Not Recruiting",
-                    "Terminated", "Active", "Completed",
-                    "Results submitted", "Suspended", "Withdrawn", "Unknown",
-                ],
-                "first_seen": ["2026-01-09"] * 13,
-            }),
+            "_optionset_vin_ctstatus": pd.DataFrame(
+                {
+                    "code": [
+                        100000001,
+                        100000002,
+                        100000003,
+                        100000004,
+                        100000005,
+                        100000006,
+                        909670000,
+                        909670001,
+                        909670002,
+                        909670003,
+                        909670004,
+                        909670006,
+                        909670007,
+                    ],
+                    "label": [
+                        "Planned",
+                        "Recruiting",
+                        "Not yet recruiting",
+                        "Active, not recruiting",
+                        "Enrolling by invitation",
+                        "Not Recruiting",
+                        "Terminated",
+                        "Active",
+                        "Completed",
+                        "Results submitted",
+                        "Suspended",
+                        "Withdrawn",
+                        "Unknown",
+                    ],
+                    "first_seen": ["2026-01-09"] * 13,
+                }
+            ),
         }
 
     def test_drops_metadata_and_aim1_columns(self):
         df = self._make_input_df()
         result, _ = transform_clinical_trials(df)
         dropped = [
-            "new_aim1ctlastupdated", "new_aim1ctnumber", "new_includedaim1",
-            "_ownerid_value", "new_aim1listsctid", "_modifiedby_value",
-            "new_aim1ctstatus", "new_aim1pcrreviewnotes", "new_pipsct",
-            "_createdby_value", "vin_pcrreviewcomments",
-            "_owningbusinessunit_value", "new_resultsfirstposted",
-            "versionnumber", "new_primarycompletiondate",
-            "new_primaryoutcomemeasures", "timezoneruleversionnumber",
-            "vin_lastupdated", "new_secondaryoutcomemeasures",
-            "_owninguser_value", "json_response", "sync_time",
-            "new_studydocuments", "vin_ctresultssource",
+            "new_aim1ctlastupdated",
+            "new_aim1ctnumber",
+            "new_includedaim1",
+            "_ownerid_value",
+            "new_aim1listsctid",
+            "_modifiedby_value",
+            "new_aim1ctstatus",
+            "new_aim1pcrreviewnotes",
+            "new_pipsct",
+            "_createdby_value",
+            "vin_pcrreviewcomments",
+            "_owningbusinessunit_value",
+            "new_resultsfirstposted",
+            "versionnumber",
+            "new_primarycompletiondate",
+            "new_primaryoutcomemeasures",
+            "timezoneruleversionnumber",
+            "vin_lastupdated",
+            "new_secondaryoutcomemeasures",
+            "_owninguser_value",
+            "json_response",
+            "sync_time",
+            "new_studydocuments",
+            "vin_ctresultssource",
         ]
         for col in dropped:
             assert col not in result.columns
@@ -468,8 +501,12 @@ class TestTransformClinicalTrials:
         assert len(os_df) == 6
         remaining_labels = set(os_df["label"])
         assert remaining_labels == {
-            "Terminated", "Active", "Completed",
-            "Suspended", "Withdrawn", "Unknown",
+            "Terminated",
+            "Active",
+            "Completed",
+            "Suspended",
+            "Withdrawn",
+            "Unknown",
         }
 
     def test_renames_columns(self):

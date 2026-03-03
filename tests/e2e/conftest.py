@@ -17,7 +17,12 @@ _dotenv_path = _PROJECT_ROOT / ".env"
 if _dotenv_path.exists():
     load_dotenv(_dotenv_path)
 
-CORE_TABLES = ["vin_candidates", "vin_clinicaltrials", "vin_diseases", "vin_rdpriorities"]
+CORE_TABLES = [
+    "vin_candidates",
+    "vin_clinicaltrials",
+    "vin_diseases",
+    "vin_rdpriorities",
+]
 
 REQUIRED_ENV_VARS = [
     "DATAVERSE_API_URL",
@@ -31,9 +36,7 @@ def _has_core_tables(db_path: Path) -> bool:
     """Check if the Bronze DB contains the 4 core tables."""
     try:
         conn = sqlite3.connect(str(db_path))
-        cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        )
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = {row[0] for row in cursor.fetchall()}
         conn.close()
         return all(t in tables for t in CORE_TABLES)
@@ -103,9 +106,7 @@ def bronze_db_path() -> Path:
         )
 
     if not cached_path.exists() or not _has_core_tables(cached_path):
-        pytest.fail(
-            "sync-dataverse completed but Bronze DB is missing or incomplete"
-        )
+        pytest.fail("sync-dataverse completed but Bronze DB is missing or incomplete")
 
     return cached_path
 

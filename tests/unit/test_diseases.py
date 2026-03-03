@@ -62,28 +62,41 @@ class TestTransformDiseases:
     def _make_option_sets(self):
         """Create option set dict with globalhealtharea."""
         return {
-            "_optionset_new_globalhealtharea": pd.DataFrame({
-                "code": [100000000, 100000001, 100000002],
-                "label": [
-                    "Neglected disease",
-                    "Emerging infectious disease",
-                    "Sexual & reproductive health",
-                ],
-                "first_seen": ["2026-01-09", "2026-01-09", "2026-01-09"],
-            }),
+            "_optionset_new_globalhealtharea": pd.DataFrame(
+                {
+                    "code": [100000000, 100000001, 100000002],
+                    "label": [
+                        "Neglected disease",
+                        "Emerging infectious disease",
+                        "Sexual & reproductive health",
+                    ],
+                    "first_seen": ["2026-01-09", "2026-01-09", "2026-01-09"],
+                }
+            ),
         }
 
     def test_drops_metadata_columns(self):
         df = self._make_input_df()
         result, _ = transform_diseases(df)
         dropped = [
-            "row_id", "createdon", "modifiedon", "_organizationid_value",
-            "crc8b_addedclinicalvalue", "crc8b_tppppc",
-            "crc8b_addedclinicalvaluedescription", "crc8b_p2iproductlaunch",
-            "statuscode", "statecode", "_createdby_value",
-            "new_globalhealthareaportal", "importsequencenumber",
-            "new_incl_eid", "_modifiedby_value", "new_incl_nd",
-            "json_response", "sync_time",
+            "row_id",
+            "createdon",
+            "modifiedon",
+            "_organizationid_value",
+            "crc8b_addedclinicalvalue",
+            "crc8b_tppppc",
+            "crc8b_addedclinicalvaluedescription",
+            "crc8b_p2iproductlaunch",
+            "statuscode",
+            "statecode",
+            "_createdby_value",
+            "new_globalhealthareaportal",
+            "importsequencenumber",
+            "new_incl_eid",
+            "_modifiedby_value",
+            "new_incl_nd",
+            "json_response",
+            "sync_time",
         ]
         for col in dropped:
             assert col not in result.columns

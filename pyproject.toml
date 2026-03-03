@@ -32,6 +32,7 @@ dev = [
 igh-data-sync = { git = "ssh://git@github.com/akvo/igh-data-sync.git" }
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
 markers = [
     "e2e: end-to-end tests using a real Bronze database (may require Dataverse credentials)",
 ]

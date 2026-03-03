@@ -13,16 +13,6 @@ repos:
       # Run the formatter
       - id: ruff-format
 
-  # mypy - Static type checker (optional for gradual typing)
-  # Uncomment to enable type checking on commits
-  # - repo: https://github.com/pre-commit/mirrors-mypy
-  #   rev: v1.19.0
-  #   hooks:
-  #     - id: mypy
-  #       args: [--config-file=pyproject.toml]
-  #       # Only check src/, config/, and tests/ directories
-  #       files: ^(src|config|tests)/.*\.py$
-
   # Standard pre-commit hooks for file hygiene
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -53,16 +43,22 @@ repos:
       - id: mixed-line-ending
         args: [--fix=lf]
 
-  # Run tests before commit (optional, can be commented out if too slow)
+  # Tests — both suites
   - repo: local
     hooks:
-      - id: pytest
-        name: pytest
-        entry: .venv/bin/pytest
+      - id: pytest-root
+        name: pytest (root project)
+        entry: uv run pytest tests/ --maxfail=1 -q
         language: system
         pass_filenames: false
         always_run: true
-        args: [tests, --maxfail=1, -q]
+
+      - id: pytest-etl
+        name: pytest (etl)
+        entry: bash -c 'cd src/igh_data_transform/etl && .venv/bin/pytest tests --maxfail=1 -q'
+        language: system
+        pass_filenames: false
+        always_run: true
 
   # Pylint checks not covered by Ruff (file length)
   - repo: https://github.com/pylint-dev/pylint
@@ -70,5 +66,5 @@ repos:
     hooks:
       - id: pylint
         args: [--disable=all, --enable=C0302, --max-module-lines=400]
-        # Only check src/ directory (not tests or config)
-        files: ^src/
+        # Only check ETL src/ directory
+        files: ^src/igh_data_transform/etl/src/

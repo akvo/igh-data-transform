@@ -2,7 +2,6 @@
 
 import json
 import sqlite3
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -121,7 +120,9 @@ class BackfillEngine:
         print(f"  Temporal groups: {total_groups}")
         print(f"  Entities processed: {self.stats['entities_processed']}")
         print(f"  SCD2 versions created: {self.stats['versions_created']}")
-        print(f"  Original temporal columns removed: {self.stats['temporal_columns_removed']}")
+        print(
+            f"  Original temporal columns removed: {self.stats['temporal_columns_removed']}"
+        )
         print(f"  Base columns created: {self.stats['base_columns_created']}")
         print()
 
@@ -135,7 +136,7 @@ class BackfillEngine:
             print(f"  Total columns: {table_data['total_columns']}")
             print(f"  Temporal columns to remove: {num_temporal_cols}")
             print(f"  Base columns to create: {len(temporal_groups)}")
-            print(f"  Temporal groups:")
+            print("  Temporal groups:")
 
             for base_name, columns in temporal_groups.items():
                 years = [str(col["year"]) for col in columns]
@@ -162,7 +163,7 @@ class BackfillEngine:
 
             # Get table schema
             raw_cursor.execute(
-                f"SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
                 (table_name,),
             )
             create_sql = raw_cursor.fetchone()[0]
@@ -181,7 +182,9 @@ class BackfillEngine:
                 columns_str = ", ".join(column_names)
 
                 # S608: table_name from schema, not user input
-                insert_sql = f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})"  # noqa: S608
+                insert_sql = (
+                    f"INSERT INTO {table_name} ({columns_str}) VALUES ({placeholders})"  # noqa: S608
+                )
 
                 output_conn.executemany(insert_sql, rows)
 
@@ -212,7 +215,7 @@ class BackfillEngine:
         raw_conn = sqlite3.connect(self.raw_db)
         raw_cursor = raw_conn.cursor()
         raw_cursor.execute(
-            f"SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
             (table_name,),
         )
         original_schema = raw_cursor.fetchone()[0]
@@ -277,7 +280,9 @@ class BackfillEngine:
         print(f"  ✓ Processed {len(entity_ids)} entities")
         if entity_ids:
             avg_versions = versions_for_table / len(entity_ids)
-            print(f"  ✓ Created {versions_for_table} SCD2 versions (avg {avg_versions:.1f} per entity)")
+            print(
+                f"  ✓ Created {versions_for_table} SCD2 versions (avg {avg_versions:.1f} per entity)"
+            )
         else:
             print(f"  ✓ Created {versions_for_table} SCD2 versions")
 
@@ -290,9 +295,7 @@ class BackfillEngine:
 
         raw_conn.close()
 
-    def _identify_business_key(
-        self, conn: sqlite3.Connection, table_name: str
-    ) -> str:
+    def _identify_business_key(self, conn: sqlite3.Connection, table_name: str) -> str:
         """
         Identify the business key column for a table.
 

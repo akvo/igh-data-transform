@@ -62,13 +62,22 @@ class TestTransformPriorities:
         df = self._make_input_df()
         result, _ = transform_priorities(df)
         dropped = [
-            "row_id", "crc8b_includeinipps", "_owninguser_value",
-            "statecode", "_ownerid_value", "importsequencenumber",
-            "_modifiedby_value", "crc8b_addedclinicalvalue",
+            "row_id",
+            "crc8b_includeinipps",
+            "_owninguser_value",
+            "statecode",
+            "_ownerid_value",
+            "importsequencenumber",
+            "_modifiedby_value",
+            "crc8b_addedclinicalvalue",
             "crc8b_p2iproductlaunchbasedonrdpriority",
-            "_createdby_value", "statuscode", "timezoneruleversionnumber",
-            "crc8b_realisticlaunch", "_owningbusinessunit_value",
-            "json_response", "sync_time",
+            "_createdby_value",
+            "statuscode",
+            "timezoneruleversionnumber",
+            "crc8b_realisticlaunch",
+            "_owningbusinessunit_value",
+            "json_response",
+            "sync_time",
         ]
         for col in dropped:
             assert col not in result.columns
@@ -125,6 +134,8 @@ class TestTransformPriorities:
 
     def test_works_with_option_sets_param(self):
         df = self._make_input_df()
-        result, option_sets = transform_priorities(df, option_sets={"some_set": pd.DataFrame()})
+        result, option_sets = transform_priorities(
+            df, option_sets={"some_set": pd.DataFrame()}
+        )
         assert isinstance(result, pd.DataFrame)
         assert len(option_sets) == 0

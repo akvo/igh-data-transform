@@ -60,7 +60,9 @@ def main(raw_db, column_report, output, dry_run, current_year):
           --output scd2_backfilled.db
     """
     try:
-        engine = BackfillEngine(raw_db, column_report, output, current_year=current_year)
+        engine = BackfillEngine(
+            raw_db, column_report, output, current_year=current_year
+        )
         engine.run(dry_run=dry_run)
     except Exception as e:
         click.echo(f"\n✗ Error: {e}", err=True)

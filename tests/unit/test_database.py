@@ -45,7 +45,9 @@ class TestDatabaseManager:
             db.commit()
 
             # Verify table was created
-            cursor = db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='test'")
+            cursor = db.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='test'"
+            )
             result = cursor.fetchone()
             assert result is not None
             assert result["name"] == "test"

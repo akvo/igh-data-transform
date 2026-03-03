@@ -144,8 +144,6 @@ class TemporalAnalyzer:
         # Exclude temporal columns, row_id, valid_from, valid_to
         exclude_columns = temporal_columns | {"row_id", "valid_from", "valid_to"}
 
-        base_record = {
-            k: v for k, v in row_dict.items() if k not in exclude_columns
-        }
+        base_record = {k: v for k, v in row_dict.items() if k not in exclude_columns}
 
         return base_record

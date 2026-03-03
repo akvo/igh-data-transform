@@ -3,7 +3,6 @@
 import sqlite3
 from pathlib import Path
 
-import pytest
 
 from igh_data_transform.temporal_backfill import BackfillEngine
 
@@ -103,8 +102,7 @@ class TestBackfillEngine:
 
         # Check schema matches
         columns = [
-            row[1]
-            for row in conn.execute("PRAGMA table_info(vin_metadata)").fetchall()
+            row[1] for row in conn.execute("PRAGMA table_info(vin_metadata)").fetchall()
         ]
         assert columns == ["id", "key", "value"]
 

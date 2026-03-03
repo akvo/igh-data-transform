@@ -47,7 +47,9 @@ class DatabaseManager:
             RuntimeError: If called outside of context manager.
         """
         if self.connection is None:
-            raise RuntimeError("Database connection not established. Use context manager.")
+            raise RuntimeError(
+                "Database connection not established. Use context manager."
+            )
         if params:
             return self.connection.execute(query, params)
         return self.connection.execute(query)
@@ -59,5 +61,7 @@ class DatabaseManager:
             RuntimeError: If called outside of context manager.
         """
         if self.connection is None:
-            raise RuntimeError("Database connection not established. Use context manager.")
+            raise RuntimeError(
+                "Database connection not established. Use context manager."
+            )
         self.connection.commit()
