@@ -284,6 +284,7 @@ class TestExpandTemporalRows:
         )
         result = _expand_temporal_rows(df)
         for col in [
+            "vin_2019stagepcr",
             "new_2023currentrdstage",
             "new_2024currentrdstage",
             "_resolved_rdstage_2025",
@@ -536,6 +537,66 @@ class TestExpandTemporalRows:
         assert result.loc[1, "includeinpipeline"] == 100000000  # 2024 (ff from 2021)
         assert pd.isna(result.loc[2, "includeinpipeline"])  # 2025 (explicit NULL)
 
+    def test_2019_rdstage_column_contributes_boundary(self):
+        """2019-01-01 appears in valid_from when vin_2019stagepcr is set."""
+        df = pd.DataFrame(
+            {
+                "vin_candidateid": ["cand-1"],
+                "vin_name": ["CandA"],
+                "vin_2019stagepcr": ["Phase I"],
+                "_resolved_rdstage_2025": ["Phase III"],
+                "new_includeinpipeline": [100000000],
+                "vin_product": ["Drugs"],
+            }
+        )
+        result = _expand_temporal_rows(df)
+        assert "2019-01-01" in result["valid_from"].values
+
+    def test_2019_rdstage_column_dropped_from_output(self):
+        """vin_2019stagepcr is consumed by expansion and absent from result."""
+        df = pd.DataFrame(
+            {
+                "vin_candidateid": ["cand-1"],
+                "vin_name": ["CandA"],
+                "vin_2019stagepcr": ["Phase I"],
+                "_resolved_rdstage_2025": ["Phase III"],
+                "new_includeinpipeline": [100000000],
+                "vin_product": ["Drugs"],
+            }
+        )
+        result = _expand_temporal_rows(df)
+        assert "vin_2019stagepcr" not in result.columns
+
+    def test_full_rdstage_timeline_with_all_five_columns(self):
+        """All 5 RD stage boundaries produce 5 rows with correct forward-filled values."""
+        df = pd.DataFrame(
+            {
+                "vin_candidateid": ["cand-1"],
+                "vin_name": ["CandA"],
+                "vin_2019stagepcr": ["Discovery"],
+                "new_rdstage2021": ["Preclinical"],
+                "new_2023currentrdstage": ["Phase I"],
+                "new_2024currentrdstage": ["Phase II"],
+                "_resolved_rdstage_2025": ["Phase III"],
+                "vin_product": ["Drugs"],
+            }
+        )
+        result = _expand_temporal_rows(df)
+        result = result.sort_values("valid_from").reset_index(drop=True)
+        assert len(result) == 5
+        assert list(result["valid_from"]) == [
+            "2019-01-01",
+            "2021-01-01",
+            "2023-01-01",
+            "2024-01-01",
+            "2025-01-01",
+        ]
+        assert result.loc[0, "new_currentrdstage"] == "Discovery"
+        assert result.loc[1, "new_currentrdstage"] == "Preclinical"
+        assert result.loc[2, "new_currentrdstage"] == "Phase I"
+        assert result.loc[3, "new_currentrdstage"] == "Phase II"
+        assert result.loc[4, "new_currentrdstage"] == "Phase III"
+
 
 class TestTransformCandidates:
     """Tests for transform_candidates function."""
@@ -548,6 +609,7 @@ class TestTransformCandidates:
             "vin_product": ["Drug", "Diagnostic", "Reservoir targeted vaccines"],
             "new_pressuretype": ["Negative pressure ", "Not applicable ", None],
             # Temporal source columns (consumed by SCD2 expansion)
+            "vin_2019stagepcr": ["Phase I", None, None],
             "new_2024currentrdstage": [
                 "Late development (design and development)",
                 "Phase III - Drugs",
@@ -821,6 +883,7 @@ class TestTransformCandidates:
         lookup = self._make_lookup_tables()
         result, _ = transform_candidates(df, lookup_tables=lookup)
         for col in [
+            "vin_2019stagepcr",
             "new_2023currentrdstage",
             "new_2024currentrdstage",
             "_vin_currentrndstage_value",

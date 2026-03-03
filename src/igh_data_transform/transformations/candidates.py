@@ -16,6 +16,7 @@ from igh_data_transform.transformations.cleanup import (
 # Temporal source columns consumed by expansion
 _TEMPORAL_SOURCE_COLS = [
     # RD stage
+    "vin_2019stagepcr",
     "new_rdstage2021",
     "new_2023currentrdstage",
     "new_2024currentrdstage",
@@ -166,6 +167,7 @@ def _expand_temporal_rows(df: pd.DataFrame) -> pd.DataFrame:
     Must be called before column renaming (uses original bronze names).
     """
     _rdstage_cols = [
+        ("vin_2019stagepcr", "2019-01-01"),
         ("new_rdstage2021", "2021-01-01"),
         ("new_2023currentrdstage", "2023-01-01"),
         ("new_2024currentrdstage", "2024-01-01"),

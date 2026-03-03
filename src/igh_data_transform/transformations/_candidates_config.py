@@ -208,5 +208,4 @@ COLUMN_RENAMES = {
     "new_2023developmentstatus": "2023developmentstatus",
     "_vin_currentrndstage_value": "rdstage_value",
     "vin_approvingauthority": "approvingauthority",
-    "vin_2019stagepcr": "2019RDstage",
 }
