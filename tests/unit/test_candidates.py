@@ -4,7 +4,7 @@ import pandas as pd
 
 from igh_data_transform.transformations.candidates import (
     _expand_temporal_rows,
-    _normalize_text_pipeline_cols,
+    _normalize_pipeline_cols,
     _resolve_rdstage_fk,
     transform_candidates,
 )
@@ -84,39 +84,49 @@ class TestResolveRdstageFk:
         assert list(df.columns) == original_cols
 
 
-class TestNormalizeTextPipelineCols:
-    """Tests for _normalize_text_pipeline_cols function."""
+class TestNormalizePipelineCols:
+    """Tests for _normalize_pipeline_cols function."""
 
     def test_yes_maps_to_included(self):
         df = pd.DataFrame({"vin_2019pcrpipelineinclusion": ["Yes"]})
-        result = _normalize_text_pipeline_cols(df)
+        result = _normalize_pipeline_cols(df)
         assert result["vin_2019pcrpipelineinclusion"].iloc[0] == 100000000
 
     def test_no_maps_to_excluded(self):
         df = pd.DataFrame({"new_2023includeinevgendatabase": ["No"]})
-        result = _normalize_text_pipeline_cols(df)
+        result = _normalize_pipeline_cols(df)
         assert result["new_2023includeinevgendatabase"].iloc[0] == 100000001
 
     def test_pending_maps_to_excluded(self):
         df = pd.DataFrame({"new_2023includeinevgendatabase": ["Pending"]})
-        result = _normalize_text_pipeline_cols(df)
+        result = _normalize_pipeline_cols(df)
         assert result["new_2023includeinevgendatabase"].iloc[0] == 100000001
 
     def test_null_stays_null(self):
         df = pd.DataFrame({"vin_2019pcrpipelineinclusion": [None]})
-        result = _normalize_text_pipeline_cols(df)
+        result = _normalize_pipeline_cols(df)
         assert pd.isna(result["vin_2019pcrpipelineinclusion"].iloc[0])
 
     def test_does_not_modify_original(self):
         df = pd.DataFrame({"vin_2019pcrpipelineinclusion": ["Yes"]})
-        _normalize_text_pipeline_cols(df)
+        _normalize_pipeline_cols(df)
         assert df["vin_2019pcrpipelineinclusion"].iloc[0] == "Yes"
 
     def test_missing_column_is_noop(self):
         df = pd.DataFrame({"other_col": [1, 2, 3]})
-        result = _normalize_text_pipeline_cols(df)
+        result = _normalize_pipeline_cols(df)
         assert list(result.columns) == ["other_col"]
         assert list(result["other_col"]) == [1, 2, 3]
+
+    def test_2024_code_862890000_maps_to_100000000(self):
+        df = pd.DataFrame({"new_2024includeinpipeline": [862890000]})
+        result = _normalize_pipeline_cols(df)
+        assert result["new_2024includeinpipeline"].iloc[0] == 100000000
+
+    def test_2024_null_stays_null(self):
+        df = pd.DataFrame({"new_2024includeinpipeline": [None]})
+        result = _normalize_pipeline_cols(df)
+        assert pd.isna(result["new_2024includeinpipeline"].iloc[0])
 
 
 class TestExpandTemporalRows:
@@ -622,7 +632,7 @@ class TestTransformCandidates:
             "vin_2019pcrpipelineinclusion": ["Yes", None, "Yes"],
             "new_includeinpipeline2021": [100000000.0, 100000002.0, 100000001.0],
             "new_2023includeinevgendatabase": ["Yes", "No", "Pending"],
-            "new_2024includeinpipeline": [100000000.0, 100000002.0, 100000001.0],
+            "new_2024includeinpipeline": [862890000.0, None, None],
             "new_includeinpipeline": [100000000.0, 100000002.0, 100000001.0],
             "_vin_captype_value": [
                 "c1746ad3-93d1-f011-bbd3-00224892cefa",

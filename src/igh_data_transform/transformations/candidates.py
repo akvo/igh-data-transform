@@ -121,6 +121,10 @@ _TEXT_PIPELINE_COLS = [
     "new_2023includeinevgendatabase",
 ]
 
+# 2024 pipeline column uses a different option set code scheme (862890000 = Yes)
+_PIPELINE_CODE_NORMALIZATION = {862890000: 100000000}
+_CODE_PIPELINE_COLS = ["new_2024includeinpipeline"]
+
 # Option set rows to remove (by code)
 _INDICATION_TYPE_CODES_TO_REMOVE = {100000003, 100000004, 100000005}
 _PRECLINICAL_RESULTS_CODES_TO_REMOVE = {909670004}
@@ -145,12 +149,19 @@ def _resolve_rdstage_fk(
     return df
 
 
-def _normalize_text_pipeline_cols(df: pd.DataFrame) -> pd.DataFrame:
-    """Convert text-valued pipeline columns to integer option set codes."""
+def _normalize_pipeline_cols(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize pipeline columns to consistent integer option set codes.
+
+    Text columns (2019, 2023) are mapped from "Yes"/"No"/"Pending" to codes.
+    Code columns with non-standard schemes (2024: 862890000=Yes) are remapped.
+    """
     df = df.copy()
     for col in _TEXT_PIPELINE_COLS:
         if col in df.columns:
             df[col] = df[col].map(_PIPELINE_TEXT_TO_CODE)
+    for col in _CODE_PIPELINE_COLS:
+        if col in df.columns:
+            df[col] = df[col].replace(_PIPELINE_CODE_NORMALIZATION)
     return df
 
 
@@ -258,7 +269,7 @@ def transform_candidates(
         df = _resolve_rdstage_fk(df, lookup_tables["vin_rdstageproducts"])
 
     # 1b. Normalize text-valued pipeline columns to integer codes
-    df = _normalize_text_pipeline_cols(df)
+    df = _normalize_pipeline_cols(df)
 
     # 2. Temporal expansion (reads original bronze column names)
     df = _expand_temporal_rows(df)
