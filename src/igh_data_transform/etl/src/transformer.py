@@ -35,12 +35,22 @@ class Transformer:
         self._candidate_cross_refs: dict[str, dict[int, int | None]] = {}
 
     def _parse_optionset(self, expr: str, row: dict) -> str | None:
-        """Parse OPTIONSET:column_name and look up label."""
-        col_name = expr[len("OPTIONSET:") :]
-        code = row.get(col_name)
+        """Parse OPTIONSET:column_name or OPTIONSET:column_name|cache_key.
+
+        The pipe-separated form handles cases where the silver data column
+        name differs from the optionset cache table suffix (e.g. the silver
+        column is ``emaapprovalstatus`` but the optionset table is
+        ``_optionset_vin_emaapprovalstatus``).
+        """
+        ref = expr[len("OPTIONSET:"):]
+        if "|" in ref:
+            data_col, cache_key = ref.split("|", 1)
+        else:
+            data_col = cache_key = ref
+        code = row.get(data_col)
         if code is None:
             return None
-        return self.extractor.lookup_optionset(col_name, code)
+        return self.extractor.lookup_optionset(cache_key, code)
 
     def _evaluate_expression(self, expr: str, row: dict) -> Any:
         """Evaluate a source expression against a row."""
@@ -181,7 +191,12 @@ class Transformer:
                     source_cols.append(match.group(1))
                     col_mapping[target_col] = source_expr
             elif source_expr.startswith("OPTIONSET:"):
-                source_col = source_expr[len("OPTIONSET:") :]
+                # Strip optional pipe-separated cache key (e.g.
+                # "emaapprovalstatus|vin_emaapprovalstatus" → column is
+                # just "emaapprovalstatus"; the suffix is the optionset
+                # lookup key, handled later by _parse_optionset).
+                ref = source_expr[len("OPTIONSET:"):]
+                source_col = ref.split("|", 1)[0]
                 source_cols.append(source_col)
                 col_mapping[target_col] = source_expr
             else:
