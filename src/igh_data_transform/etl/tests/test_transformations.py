@@ -42,6 +42,30 @@ class TestExpressionParsing:
         result = parse_coalesce("COALESCE(NULL, 'Unknown')", row)
         assert result == "Unknown"
 
+    def test_parse_coalesce_two_columns_first_present(self):
+        """COALESCE(col1, col2) returns col1 when present."""
+        row = {"primary": "Primary value", "secondary": "Secondary value"}
+        result = parse_coalesce("COALESCE(primary, secondary)", row)
+        assert result == "Primary value"
+
+    def test_parse_coalesce_two_columns_fallback(self):
+        """COALESCE(col1, col2) returns col2 when col1 is None."""
+        row = {"primary": None, "secondary": "Secondary value"}
+        result = parse_coalesce("COALESCE(primary, secondary)", row)
+        assert result == "Secondary value"
+
+    def test_parse_coalesce_two_columns_both_none(self):
+        """COALESCE(col1, col2) returns None when both are None."""
+        row = {"primary": None, "secondary": None}
+        result = parse_coalesce("COALESCE(primary, secondary)", row)
+        assert result is None
+
+    def test_parse_coalesce_two_columns_first_missing(self):
+        """COALESCE(col1, col2) falls back when col1 key is missing."""
+        row = {"secondary": "Fallback"}
+        result = parse_coalesce("COALESCE(primary, secondary)", row)
+        assert result == "Fallback"
+
     def test_parse_case_when_true(self):
         """CASE WHEN returns THEN value when condition is true."""
         row = {"statecode": 0}

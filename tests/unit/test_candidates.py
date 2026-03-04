@@ -6,6 +6,7 @@ from igh_data_transform.transformations.candidates import (
     _expand_temporal_rows,
     _normalize_pipeline_cols,
     _resolve_rdstage_fk,
+    _synthesize_key_clinical_trial,
     transform_candidates,
 )
 
@@ -1067,3 +1068,88 @@ class TestTransformCandidates:
         assert isinstance(result, pd.DataFrame)
         # _vin_currentrndstage_value should be dropped (consumed by expansion)
         assert "_vin_currentrndstage_value" not in result.columns
+
+    def test_new_columns_not_dropped(self):
+        """routeofadministration, new_platform, chimstudyyesno survive transform."""
+        df = self._make_input_df(
+            overrides={
+                "vin_routeofadministrationaggregated": ["Oral", "IV", None],
+                "new_platform": ["mRNA", None, "Protein"],
+                "new_chimstudyyesno": [100000000, None, 100000001],
+            }
+        )
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
+        # Renamed columns present
+        assert "routeofadministration" in result.columns
+        assert "chimstudyyesno" in result.columns
+        # new_platform keeps its name (no prefix to strip)
+        assert "new_platform" in result.columns
+
+    def test_ctregistrylink_synthesis_applied(self):
+        """CT registry link is cleaned during transform."""
+        df = self._make_input_df(
+            overrides={
+                "new_ctregistrylink": [
+                    "https://clinicaltrials.gov/study/NCT001",
+                    "NCT12345678",
+                    "IRCT2023xyz",
+                ],
+            }
+        )
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
+        ct_values = result.groupby("candidate_name")["ctregistrylink"].first()
+        assert ct_values["Candidate A"] == "https://clinicaltrials.gov/study/NCT001"
+        assert (
+            ct_values["Candidate B"] == "https://clinicaltrials.gov/study/NCT12345678"
+        )
+        assert pd.isna(ct_values["Candidate C"])
+
+
+class TestSynthesizeKeyClinicalTrial:
+    """Tests for _synthesize_key_clinical_trial function."""
+
+    def test_full_url_passes_through(self):
+        assert (
+            _synthesize_key_clinical_trial("https://clinicaltrials.gov/study/NCT001")
+            == "https://clinicaltrials.gov/study/NCT001"
+        )
+
+    def test_bare_nct_id_prefixed(self):
+        assert (
+            _synthesize_key_clinical_trial("NCT05710783")
+            == "https://clinicaltrials.gov/study/NCT05710783"
+        )
+
+    def test_bare_non_nct_id_returns_none(self):
+        assert _synthesize_key_clinical_trial("IRCT2023xyz") is None
+
+    def test_bare_isrctn_returns_none(self):
+        assert _synthesize_key_clinical_trial("ISRCTN15779782") is None
+
+    def test_multi_value_with_nct_extracts_first(self):
+        val = "NCT04642638\nISRCTN15779782"
+        assert (
+            _synthesize_key_clinical_trial(val)
+            == "https://clinicaltrials.gov/study/NCT04642638"
+        )
+
+    def test_multi_value_without_nct_returns_none(self):
+        val = "IRCT001\nISRCTN002"
+        assert _synthesize_key_clinical_trial(val) is None
+
+    def test_null_returns_none(self):
+        assert _synthesize_key_clinical_trial(None) is None
+
+    def test_empty_string_returns_none(self):
+        assert _synthesize_key_clinical_trial("") is None
+
+    def test_whitespace_only_returns_none(self):
+        assert _synthesize_key_clinical_trial("   ") is None
+
+    def test_nct_with_leading_whitespace(self):
+        assert (
+            _synthesize_key_clinical_trial("  NCT123  ")
+            == "https://clinicaltrials.gov/study/NCT123"
+        )

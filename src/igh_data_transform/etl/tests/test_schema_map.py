@@ -108,6 +108,8 @@ class TestSchemaMapExpressions:
         coalesce_string_pattern = r"COALESCE\([^,]+,\s*'[^']*'\)"
         # Pattern for COALESCE with numeric default: COALESCE(col, 0)
         coalesce_numeric_pattern = r"COALESCE\([^,]+,\s*\d+\)"
+        # Pattern for COALESCE with two column references: COALESCE(col1, col2)
+        coalesce_two_col_pattern = r"COALESCE\(\w+,\s*\w+\)"
 
         for table_name, config in STAR_SCHEMA_MAP.items():
             for col_name, expr in config.items():
@@ -118,6 +120,7 @@ class TestSchemaMapExpressions:
                     valid = (
                         re.match(coalesce_string_pattern, expr)
                         or re.match(coalesce_numeric_pattern, expr)
+                        or re.match(coalesce_two_col_pattern, expr)
                         or "COALESCE(NULL," in expr
                     )
                     assert valid, f"Invalid COALESCE in {table_name}.{col_name}: {expr}"
@@ -131,6 +134,45 @@ class TestSchemaMapExpressions:
                 if isinstance(expr, str) and expr.startswith("OPTIONSET:"):
                     col_ref = expr[len("OPTIONSET:") :]
                     assert col_ref, f"Empty OPTIONSET reference in {table_name}.{col_name}"
+
+    def test_new_candidate_columns_present(self):
+        """dim_candidate_core has technology_principle and target_population."""
+        config = STAR_SCHEMA_MAP["dim_candidate_core"]
+        assert "technology_principle" in config
+        assert config["technology_principle"] == "technologyprinciple"
+        assert "target_population" in config
+        assert config["target_population"] == "new_targetpopulation"
+
+    def test_new_priority_columns_present(self):
+        """dim_priority has all new columns including product FK."""
+        config = STAR_SCHEMA_MAP["dim_priority"]
+        assert config["type_of_guidance"] == "ppctitle"
+        assert config["author"] == "author"
+        assert config["publication_date"] == "publicationdate"
+        assert config["target_population"] == "targetpopulation"
+        assert config["efficacy"] == "efficacy"
+        assert config["safety"] == "safety"
+        assert config["source"] == "source"
+        assert config["product_key"] == "FK:dim_product.vin_productid|product_value"
+
+    def test_new_clinical_trial_columns_present(self):
+        """fact_clinical_trial_event has all new columns."""
+        config = STAR_SCHEMA_MAP["fact_clinical_trial_event"]
+        assert config["funder_type"] == "fundertype"
+        assert config["interventions"] == "interventions"
+        assert config["outcome_measure"] == "COALESCE(outcomemeasure_primary, outcomemeasure_secondary)"
+        assert config["sex"] == "sex"
+        assert config["study_design"] == "study_design"
+        assert config["ct_results_type"] == "OPTIONSET:ctresultstype|vin_ctresultstype"
+        assert config["ct_terminated_reason"] == "ctterminatedreason"
+
+    def test_new_candidate_extract_columns_present(self):
+        """dim_candidate_core has 4 new extract custom data columns."""
+        config = STAR_SCHEMA_MAP["dim_candidate_core"]
+        assert config["route_of_administration"] == "routeofadministration"
+        assert config["platform"] == "new_platform"
+        assert config["chim_study"] == "OPTIONSET:chimstudyyesno|new_chimstudyyesno"
+        assert config["key_clinical_trial"] == "ctregistrylink"
 
     def test_fk_expressions_valid(self):
         """FK expressions should have valid format."""

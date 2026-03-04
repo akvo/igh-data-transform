@@ -39,6 +39,12 @@ def parse_coalesce(expr: str, row: dict) -> Any:
         match = re.match(r"COALESCE\(NULL,\s*'([^']*)'\)", expr)
         if match:
             return match.group(1)
+        # Handle COALESCE(col1, col2) — two column references
+        match = re.match(r"COALESCE\((\w+),\s*(\w+)\)", expr)
+        if match:
+            col1, col2 = match.groups()
+            val = row.get(col1)
+            return val if val is not None else row.get(col2)
         return None
 
     col_name, default = match.groups()

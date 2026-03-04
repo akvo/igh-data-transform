@@ -106,6 +106,29 @@ _INDICATION_TYPE_CONSOLIDATION = {
     100000005: 100000002,  # Duplicate Prevention & treatment -> Prevention & treatment
 }
 
+
+def _synthesize_key_clinical_trial(val) -> str | None:
+    """Clean CT registry link: keep full URLs, prefix bare NCT IDs, drop others."""
+    if pd.isna(val):
+        return None
+    val = str(val).strip()
+    if not val:
+        return None
+
+    # Already a full URL — keep as-is
+    if val.startswith("http"):
+        return val
+
+    # Multi-value (newline-separated) or single bare ID — find first NCT ID
+    for token in val.split("\n"):
+        token = token.strip()
+        if token.upper().startswith("NCT"):
+            return f"https://clinicaltrials.gov/study/{token}"
+
+    # No NCT ID found
+    return None
+
+
 _PRECLINICAL_RESULTS_CONSOLIDATION = {
     909670004.0: 909670002.0,  # Unavailable/unknown -> Unknown
 }
@@ -286,6 +309,12 @@ def transform_candidates(
     # 3. Drop columns (temporal sources already consumed by expansion)
     df = drop_columns_by_name(df, COLUMNS_TO_DROP)
     df = drop_empty_columns(df, preserve=["valid_to", "valid_from"])
+
+    # 3b. Synthesize key clinical trial link
+    if "new_ctregistrylink" in df.columns:
+        df["new_ctregistrylink"] = df["new_ctregistrylink"].apply(
+            _synthesize_key_clinical_trial
+        )
 
     # 4. Rename columns
     df = rename_columns(df, COLUMN_RENAMES)
