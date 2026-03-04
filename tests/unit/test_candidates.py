@@ -128,6 +128,39 @@ class TestNormalizePipelineCols:
         result = _normalize_pipeline_cols(df)
         assert pd.isna(result["new_2024includeinpipeline"].iloc[0])
 
+    def test_2019_yes_overrides_2021_no(self):
+        """2019=Yes + 2021=No → 2021 becomes Yes (100000000)."""
+        df = pd.DataFrame(
+            {
+                "vin_2019pcrpipelineinclusion": ["Yes"],
+                "new_includeinpipeline2021": [100000001],
+            }
+        )
+        result = _normalize_pipeline_cols(df)
+        assert result["new_includeinpipeline2021"].iloc[0] == 100000000
+
+    def test_2019_null_does_not_override_2021_no(self):
+        """2019=NULL + 2021=No → 2021 stays No (100000001)."""
+        df = pd.DataFrame(
+            {
+                "vin_2019pcrpipelineinclusion": [None],
+                "new_includeinpipeline2021": [100000001],
+            }
+        )
+        result = _normalize_pipeline_cols(df)
+        assert result["new_includeinpipeline2021"].iloc[0] == 100000001
+
+    def test_2019_yes_does_not_override_2021_yes(self):
+        """Both Yes → 2021 stays Yes (no-op)."""
+        df = pd.DataFrame(
+            {
+                "vin_2019pcrpipelineinclusion": ["Yes"],
+                "new_includeinpipeline2021": [100000000],
+            }
+        )
+        result = _normalize_pipeline_cols(df)
+        assert result["new_includeinpipeline2021"].iloc[0] == 100000000
+
 
 class TestExpandTemporalRows:
     """Tests for _expand_temporal_rows function.
