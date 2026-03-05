@@ -2,18 +2,17 @@
 
 import logging
 import re
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timezone
+from functools import partial
 from typing import Any
 
-from config.phase_sort_order import (
-    PHASE_ALIASES,
-    collect_referenced_phase_names,
-    inject_synthetic_phases,
-)
+from config.phase_sort_order import PHASE_ALIASES
 from config.schema_map import STAR_SCHEMA_MAP
 from src import bridges
+from src.dimensions import generate_date_dimension, postprocess_dim_phase
 from src.expressions import evaluate_lookup, parse_case_when, parse_coalesce
 from src.extractor import Extractor
+from src.year_expansion import expand_pipeline_years
 
 # Length of ISO date string (YYYY-MM-DD)
 ISO_DATE_LENGTH = 10
@@ -42,7 +41,7 @@ class Transformer:
         column is ``emaapprovalstatus`` but the optionset table is
         ``_optionset_vin_emaapprovalstatus``).
         """
-        ref = expr[len("OPTIONSET:"):]
+        ref = expr[len("OPTIONSET:") :]
         if "|" in ref:
             data_col, cache_key = ref.split("|", 1)
         else:
@@ -122,7 +121,7 @@ class Transformer:
 
         # Handle generated dimensions
         if source_table is None and special.get("generate"):
-            return self._generate_date_dimension(special)
+            return generate_date_dimension(special)
 
         # Handle DISTINCT dimensions
         if special.get("distinct"):
@@ -151,25 +150,10 @@ class Transformer:
             transformed.append(new_row)
 
         if table_name == "dim_phase":
-            transformed = self._postprocess_dim_phase(transformed)
+            transformed = postprocess_dim_phase(transformed, self.extractor)
 
         logger.info(f"Transformed {len(transformed)} rows for {table_name}")
         return transformed
-
-    def _postprocess_dim_phase(self, transformed: list[dict]) -> list[dict]:
-        """Deduplicate, filter unreferenced, and inject synthetic phases."""
-        referenced = collect_referenced_phase_names(self.extractor)
-        # Deduplicate by phase_name (keep first occurrence)
-        seen_names: set[str] = set()
-        deduped: list[dict] = []
-        for row in transformed:
-            name = row.get("phase_name")
-            if name and name not in seen_names:
-                seen_names.add(name)
-                deduped.append(row)
-        # Filter to only phases referenced by candidates
-        filtered = [r for r in deduped if r.get("phase_name") in referenced]
-        return inject_synthetic_phases(filtered, referenced)
 
     def _transform_distinct_dimension(self, table_name: str, config: dict) -> list[dict]:
         """
@@ -195,7 +179,7 @@ class Transformer:
                 # "emaapprovalstatus|vin_emaapprovalstatus" → column is
                 # just "emaapprovalstatus"; the suffix is the optionset
                 # lookup key, handled later by _parse_optionset).
-                ref = source_expr[len("OPTIONSET:"):]
+                ref = source_expr[len("OPTIONSET:") :]
                 source_col = ref.split("|", 1)[0]
                 source_cols.append(source_col)
                 col_mapping[target_col] = source_expr
@@ -280,34 +264,17 @@ class Transformer:
         logger.info(f"Transformed {len(transformed)} rows from optionset for {table_name}")
         return transformed
 
-    @staticmethod
-    def _generate_date_dimension(special: dict) -> list[dict]:
-        """Generate date dimension programmatically."""
-        start_year = special.get("start_year", 2015)
-        end_year = special.get("end_year", 2030)
-
-        rows = []
-        current = date(start_year, 1, 1)
-        end = date(end_year + 1, 1, 1)
-
-        while current < end:
-            rows.append({
-                "full_date": current.isoformat(),
-                "year": current.year,
-                "quarter": (current.month - 1) // 3 + 1,
-            })
-            current += timedelta(days=1)
-
-        logger.info(f"Generated {len(rows)} rows for dim_date ({start_year}-{end_year})")
-        return rows
-
     def transform_fact(self, table_name: str) -> list[dict]:
         """Transform a fact table with FK lookups."""
         config = STAR_SCHEMA_MAP[table_name]
         source_table = config["_source_table"]
+        special = config.get("_special", {})
+        expand_years = special.get("expand_years", False)
         today = datetime.now(timezone.utc).date().isoformat()
 
         transformed = []
+        source_valid_ranges: list[tuple[str | None, str | None]] = []
+
         for row in self.extractor.extract_table(source_table):
             new_row = {}
             for target_col, source_expr in config.items():
@@ -328,6 +295,12 @@ class Transformer:
                     new_row[target_col] = self._evaluate_expression(source_expr, row)
 
             transformed.append(new_row)
+            if expand_years:
+                source_valid_ranges.append((row.get("valid_from"), row.get("valid_to")))
+
+        if expand_years:
+            lookup = partial(self.lookup_dimension_key, "dim_date")
+            transformed = expand_pipeline_years(transformed, source_valid_ranges, lookup)
 
         logger.info(f"Transformed {len(transformed)} rows for {table_name}")
         return transformed

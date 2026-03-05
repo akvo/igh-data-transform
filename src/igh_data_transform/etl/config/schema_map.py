@@ -202,7 +202,7 @@ STAR_SCHEMA_MAP = {
     "fact_pipeline_snapshot": {
         "_source_table": "vin_candidates",
         "_pk": "snapshot_id",
-        "_special": {"fk_lookups": True},
+        "_special": {"fk_lookups": True, "expand_years": True},
         # Foreign keys - resolved via lookup during transform
         "candidate_key": "FK:dim_candidate_core.candidateid|candidateid",
         "product_key": "FK:dim_product.vin_productid|mainproduct_value",

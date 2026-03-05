@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from src.dimensions import generate_date_dimension
 from src.expressions import parse_case_when, parse_coalesce
 from src.transformer import Transformer
 
@@ -234,16 +235,10 @@ class TestDimensionKeyCaching:
 class TestDateDimensionGeneration:
     """Test date dimension generation."""
 
-    @pytest.fixture
-    def transformer(self):
-        """Create transformer with mocked extractor."""
-        mock_extractor = MagicMock()
-        return Transformer(mock_extractor)
-
-    def test_generate_date_dimension_structure(self, transformer):
+    def test_generate_date_dimension_structure(self):
         """Date dimension has correct structure."""
         special = {"generate": True, "start_year": 2020, "end_year": 2020}
-        result = transformer._generate_date_dimension(special)
+        result = generate_date_dimension(special)
 
         assert len(result) > 0
         first_row = result[0]
@@ -251,10 +246,10 @@ class TestDateDimensionGeneration:
         assert "year" in first_row
         assert "quarter" in first_row
 
-    def test_generate_date_dimension_year_coverage(self, transformer):
+    def test_generate_date_dimension_year_coverage(self):
         """Date dimension covers full year."""
         special = {"generate": True, "start_year": 2020, "end_year": 2020}
-        result = transformer._generate_date_dimension(special)
+        result = generate_date_dimension(special)
 
         # 2020 is a leap year, so 366 days
         assert len(result) == 366
@@ -268,10 +263,10 @@ class TestDateDimensionGeneration:
         assert result[-1]["full_date"] == "2020-12-31"
         assert result[-1]["quarter"] == 4
 
-    def test_generate_date_dimension_quarters(self, transformer):
+    def test_generate_date_dimension_quarters(self):
         """Date dimension has correct quarters."""
         special = {"generate": True, "start_year": 2020, "end_year": 2020}
-        result = transformer._generate_date_dimension(special)
+        result = generate_date_dimension(special)
 
         # Check Q1 (Jan-Mar)
         jan_dates = [r for r in result if r["full_date"].startswith("2020-01")]
