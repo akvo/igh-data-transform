@@ -233,6 +233,31 @@ class Loader:
         self._conn.commit()
         logger.info(f"Wrote {len(metadata)} metadata entries")
 
+    def create_indexes(self) -> None:
+        """Create indexes on key columns for query performance."""
+        cursor = self._get_cursor()
+        indexes = [
+            # Composite index for correlated subqueries in portfolioCandidates
+            ("idx_fps_candidate_pipeline_date", "fact_pipeline_snapshot(candidate_key, include_in_pipeline, date_key)"),
+            # Covering index for is_active + include_in_pipeline filter
+            ("idx_fps_active_pipeline", "fact_pipeline_snapshot(is_active_flag, include_in_pipeline)"),
+            # Bridge table FK lookups
+            ("idx_bcg_candidate", "bridge_candidate_geography(candidate_key)"),
+            ("idx_bcg_scope", "bridge_candidate_geography(location_scope, candidate_key)"),
+            ("idx_bcd_candidate", "bridge_candidate_developer(candidate_key)"),
+            ("idx_bcp_candidate", "bridge_candidate_priority(candidate_key)"),
+            ("idx_bcaa_candidate", "bridge_candidate_approving_authority(candidate_key)"),
+            ("idx_bcf_candidate", "bridge_candidate_funder(candidate_key)"),
+            ("idx_bcag_candidate", "bridge_candidate_age_group(candidate_key)"),
+            # Clinical trials
+            ("idx_cte_candidate", "fact_clinical_trial_event(candidate_key)"),
+            ("idx_cte_status", "fact_clinical_trial_event(status)"),
+        ]
+        for name, definition in indexes:
+            cursor.execute(f"CREATE INDEX IF NOT EXISTS {name} ON {definition}")
+        self._conn.commit()
+        logger.info(f"Created {len(indexes)} indexes")
+
     def print_summary(self) -> None:
         """Print summary of loaded tables."""
         cursor = self._get_cursor()

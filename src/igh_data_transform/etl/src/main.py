@@ -144,6 +144,7 @@ def run_etl(source_path: Path, output_path: Path) -> bool:
                 loader.create_schema()
                 transformer = Transformer(extractor)
                 _process_tables(transformer, loader, logger)
+                loader.create_indexes()
 
                 last_sync = extractor.get_last_sync_date()
                 if last_sync:
