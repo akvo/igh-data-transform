@@ -249,6 +249,8 @@ class Loader:
             ("idx_bcaa_candidate", "bridge_candidate_approving_authority(candidate_key)"),
             ("idx_bcf_candidate", "bridge_candidate_funder(candidate_key)"),
             ("idx_bcag_candidate", "bridge_candidate_age_group(candidate_key)"),
+            # Covering index for geographic query: join on candidate_key + filter on active/pipeline
+            ("idx_fps_candidate_active_pipeline", "fact_pipeline_snapshot(candidate_key, is_active_flag, include_in_pipeline)"),
             # Clinical trials
             ("idx_cte_candidate", "fact_clinical_trial_event(candidate_key)"),
             ("idx_cte_status", "fact_clinical_trial_event(status)"),
