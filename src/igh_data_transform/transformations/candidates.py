@@ -70,17 +70,21 @@ _RD_STAGE_MAPPING = {
     "Late development (clinical validation and launch readiness) - Diagnostics": "Late development",
     "Late development - Diagnostics": "Late development",
     "Clinical evaluation": "Late development",
-    # → Regulatory filing
-    "Regulatory filing - Diagnostics": "Regulatory filing",
-    "PQ listing and regulatory approval": "Regulatory filing",
+    # → Previously Regulatory filing - Now Approved
+    "Regulatory filing - Diagnostics": "Approved",
+    "PQ listing and regulatory approval": "Approved",
     # → Approved
     "Approved product": "Approved",
-    # → Post-marketing surveillance
-    "Phase IV": "Post-marketing surveillance",
-    "Phase IV - Vaccines": "Post-marketing surveillance",
-    "Operational research for diagnostics": "Post-marketing surveillance",
-    # → Human safety & efficacy
-    "Post-marketing human safety/efficacy studies (without prior clinical studies)": "Human safety & efficacy",
+    # → Previously Post-marketing surveillance - Now Approved
+    "Phase IV": "Approved",
+    "Phase IV - Vaccines": "Approved",
+    "Operational research for diagnostics": "Approved",
+    # → Previously Human safety & efficacy - Now Approved
+    "Post-marketing human safety/efficacy studies (without prior clinical studies)": "Approved",
+    # Roll up already-resolved lookup names (from vin_rdstages.vin_name)
+    "Post-marketing surveillance": "Approved",
+    "Regulatory filing": "Approved",
+    "Human safety & efficacy": "Approved",
     # Normalize spelling
     "Not applicable": "Not applicable",
     "N/A": "Not applicable",
