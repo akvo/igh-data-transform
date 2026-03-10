@@ -146,7 +146,8 @@ class TestSchemaMapExpressions:
     def test_new_priority_columns_present(self):
         """dim_priority has all new columns including product FK."""
         config = STAR_SCHEMA_MAP["dim_priority"]
-        assert config["type_of_guidance"] == "ppctitle"
+        assert "type_of_guidance" not in config, "type_of_guidance was removed; priority_name now maps to ppctitle"
+        assert config["priority_name"] == "ppctitle"
         assert config["author"] == "author"
         assert config["publication_date"] == "publicationdate"
         assert config["target_population"] == "targetpopulation"
@@ -154,6 +155,13 @@ class TestSchemaMapExpressions:
         assert config["safety"] == "safety"
         assert config["source"] == "source"
         assert config["product_key"] == "FK:dim_product.vin_productid|product_value"
+
+    def test_healthcare_facility_level_uses_optionset(self):
+        """healthcare_facility_level resolves via OPTIONSET, not raw passthrough."""
+        config = STAR_SCHEMA_MAP["dim_candidate_core"]
+        expr = config["healthcare_facility_level"]
+        assert expr.startswith("OPTIONSET:"), f"healthcare_facility_level should use OPTIONSET resolution, got: {expr}"
+        assert "vin_healthcarefacilitylevel" in expr
 
     def test_new_clinical_trial_columns_present(self):
         """fact_clinical_trial_event has all new columns."""

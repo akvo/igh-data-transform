@@ -24,21 +24,21 @@ class TestDimensionFKLookups:
         mock_extractor.extract_table.return_value = [
             {
                 "rdpriorityid": "priority-1",
-                "name": "Priority A",
+                "ppctitle": "Priority A",
                 "indication": "Malaria",
                 "intendeduse": "Treatment",
                 "diseasevalue": "disease-guid-1",
             },
             {
                 "rdpriorityid": "priority-2",
-                "name": "Priority B",
+                "ppctitle": "Priority B",
                 "indication": None,
                 "intendeduse": None,
                 "diseasevalue": "disease-guid-2",
             },
             {
                 "rdpriorityid": "priority-3",
-                "name": "Priority C",
+                "ppctitle": "Priority C",
                 "indication": None,
                 "intendeduse": None,
                 "diseasevalue": "unknown-guid",
