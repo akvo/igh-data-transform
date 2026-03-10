@@ -153,30 +153,87 @@ def _lookup_country_name(
     return lower_to_canonical.get(text_lower)
 
 
-def _collect_trial_location_rows(transformer: Transformer, source_def: dict) -> list[dict]:
-    """Collect bridge rows from free-text trial locations."""
+def collect_trial_geography_rows(transformer: Transformer, source_def: dict) -> list[dict]:
+    """Collect bridge rows mapping trials to countries from free-text locations."""
     source_table = source_def["table"]
-    candidate_col = source_def["candidate_col"]
+    trial_col = source_def["trial_col"]
     country_col = source_def["country_col"]
-    location_scope = source_def["location_scope"]
     country_name_cache = transformer._dim_caches.get("dim_geography_by_country_name", {})
 
     rows: list[dict] = []
     for row in transformer.extractor.extract_table(source_table):
-        candidate_id = row.get(candidate_col)
+        trial_id = row.get(trial_col)
         locations_text = row.get(country_col)
-        candidate_key = transformer.lookup_dimension_key("dim_candidate_core", candidate_id)
-        if candidate_key is None or not locations_text:
+        trial_key = transformer.lookup_dimension_key("fact_clinical_trial_event", trial_id)
+        if trial_key is None or not locations_text:
             continue
         for country_name in parse_trial_locations(locations_text, country_name_cache):
             country_key = country_name_cache.get(country_name)
             if country_key is not None:
-                rows.append({
-                    "candidate_key": candidate_key,
-                    "country_key": country_key,
-                    "location_scope": location_scope,
-                })
+                rows.append({"trial_key": trial_key, "country_key": country_key})
     return rows
+
+
+def collect_structured_trial_geography_rows(
+    transformer: Transformer,
+    source_def: dict,
+) -> list[dict]:
+    """Collect bridge rows from a structured trial→country junction table."""
+    source_table = source_def["table"]
+    trial_col = source_def["trial_col"]
+    country_col = source_def["country_col"]
+
+    rows: list[dict] = []
+    for row in transformer.extractor.extract_table(source_table):
+        trial_id = row.get(trial_col)
+        country_ref = row.get(country_col)
+
+        trial_key = transformer.lookup_dimension_key("fact_clinical_trial_event", trial_id)
+        country_key = transformer.lookup_dimension_key("dim_geography", country_ref)
+
+        if trial_key is not None and country_key is not None:
+            rows.append({"trial_key": trial_key, "country_key": country_key})
+    return rows
+
+
+def _collect_candidate_geography_rows(transformer: Transformer, source_def: dict) -> list[dict]:
+    """Collect candidate-level geography rows from a single union source."""
+    candidate_col = source_def["candidate_col"]
+    country_col = source_def["country_col"]
+    location_scope = source_def["location_scope"]
+
+    rows: list[dict] = []
+    for row in transformer.extractor.extract_table(source_def["table"]):
+        candidate_id = row.get(candidate_col)
+        country_ref = row.get(country_col)
+
+        candidate_key = transformer.lookup_dimension_key("dim_candidate_core", candidate_id)
+
+        if source_def.get("optionset_lookup"):
+            country_name = transformer.extractor.lookup_optionset(source_def["optionset_lookup"], country_ref)
+            if country_name is None:
+                continue
+            country_key = transformer._dim_caches.get("dim_geography_by_country_name", {}).get(country_name)
+        elif source_def.get("country_name_lookup"):
+            country_key = transformer._dim_caches.get("dim_geography_by_country_name", {}).get(country_ref)
+        else:
+            country_key = transformer.lookup_dimension_key("dim_geography", country_ref)
+
+        if candidate_key is not None and country_key is not None:
+            rows.append({"candidate_key": candidate_key, "country_key": country_key, "location_scope": location_scope})
+    return rows
+
+
+def _deduplicate(rows: list[dict], key_cols: tuple[str, ...]) -> list[dict]:
+    """Remove duplicate rows based on the given key columns."""
+    seen: set[tuple] = set()
+    deduped: list[dict] = []
+    for row in rows:
+        key = tuple(row[c] for c in key_cols)
+        if key not in seen:
+            seen.add(key)
+            deduped.append(row)
+    return deduped
 
 
 def transform_union_bridge(transformer: Transformer, table_name: str, _config: dict, special: dict) -> list[dict]:
@@ -193,53 +250,22 @@ def transform_union_bridge(transformer: Transformer, table_name: str, _config: d
         List of bridge rows
     """
     union_sources = special.get("union_sources", [])
-    transformed = []
+    is_trial_bridge = special.get("trial_bridge", False)
+    transformed: list[dict] = []
 
     for source_def in union_sources:
-        if source_def.get("parse_trial_locations"):
-            transformed.extend(_collect_trial_location_rows(transformer, source_def))
-            continue
+        if is_trial_bridge:
+            collector = (
+                collect_trial_geography_rows
+                if source_def.get("parse_trial_locations")
+                else collect_structured_trial_geography_rows
+            )
+            transformed.extend(collector(transformer, source_def))
+        else:
+            transformed.extend(_collect_candidate_geography_rows(transformer, source_def))
 
-        source_table = source_def["table"]
-        candidate_col = source_def["candidate_col"]
-        country_col = source_def["country_col"]
-        location_scope = source_def["location_scope"]
-
-        for row in transformer.extractor.extract_table(source_table):
-            candidate_id = row.get(candidate_col)
-            country_ref = row.get(country_col)
-
-            # Resolve candidate key
-            candidate_key = transformer.lookup_dimension_key("dim_candidate_core", candidate_id)
-
-            # Resolve country key (might need optionset lookup)
-            if source_def.get("optionset_lookup"):
-                optionset_name = source_def["optionset_lookup"]
-                country_name = transformer.extractor.lookup_optionset(optionset_name, country_ref)
-                if country_name is None:
-                    continue
-                country_key = transformer._dim_caches.get("dim_geography_by_country_name", {}).get(country_name)
-            elif source_def.get("country_name_lookup"):
-                country_key = transformer._dim_caches.get("dim_geography_by_country_name", {}).get(country_ref)
-            else:
-                country_key = transformer.lookup_dimension_key("dim_geography", country_ref)
-
-            if candidate_key is not None and country_key is not None:
-                transformed.append({
-                    "candidate_key": candidate_key,
-                    "country_key": country_key,
-                    "location_scope": location_scope,
-                })
-
-    # Deduplicate rows (e.g. multiple developers from same country for same candidate)
-    seen = set()
-    deduped = []
-    for row in transformed:
-        key = (row["candidate_key"], row["country_key"], row["location_scope"])
-        if key not in seen:
-            seen.add(key)
-            deduped.append(row)
-    transformed = deduped
+    key_cols = ("trial_key", "country_key") if is_trial_bridge else ("candidate_key", "country_key", "location_scope")
+    transformed = _deduplicate(transformed, key_cols)
 
     logger.info(f"Transformed {len(transformed)} rows for {table_name}")
     return transformed

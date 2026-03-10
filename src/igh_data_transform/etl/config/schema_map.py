@@ -265,13 +265,6 @@ STAR_SCHEMA_MAP = {
         "_special": {
             "union_sources": [
                 {
-                    "table": "vin_clinicaltrials",
-                    "candidate_col": "candidate_value",
-                    "country_col": "locations",
-                    "location_scope": "Trial Location",
-                    "parse_trial_locations": True,
-                },
-                {
                     "table": "_junction_vin_candidates_new_targetcountry",
                     "candidate_col": "entity_id",
                     "country_col": "option_code",
@@ -342,11 +335,27 @@ STAR_SCHEMA_MAP = {
         "funder_key": "FK:dim_funder.funder_name|DELIMITED_VALUE",
     },
     "bridge_trial_geography": {
-        "_source_table": "vin_vin_clinicaltrial_vin_countryset",
+        "_source_table": "UNION",
         "_pk": None,
-        "_special": {"trial_bridge": True},
-        "trial_key": "FK:fact_clinical_trial_event.clinicaltrialid|vin_clinicaltrialid",
-        "country_key": "FK:dim_geography.vin_countryid|vin_countryid",
+        "_special": {
+            "trial_bridge": True,
+            "union_sources": [
+                {
+                    "table": "vin_vin_clinicaltrial_vin_countryset",
+                    "trial_col": "vin_clinicaltrialid",
+                    "country_col": "vin_countryid",
+                    "structured": True,  # FK resolution, not text parsing
+                },
+                {
+                    "table": "vin_clinicaltrials",
+                    "trial_col": "clinicaltrialid",
+                    "country_col": "locations",
+                    "parse_trial_locations": True,
+                },
+            ],
+        },
+        "trial_key": "FK:fact_clinical_trial_event.clinicaltrialid|trial_col",
+        "country_key": "FK:dim_geography.vin_countryid|country_col",
     },
 }
 

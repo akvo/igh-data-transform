@@ -7,6 +7,8 @@ import pytest
 from config import schema_map
 from src import bridges as bridges_mod
 from src.bridges import (
+    collect_structured_trial_geography_rows,
+    collect_trial_geography_rows,
     parse_trial_locations,
     transform_bridge,
     transform_delimited_bridge,
@@ -174,43 +176,121 @@ class TestStandardJunctionBridge:
 
 
 class TestTrialGeographyBridge:
-    """Test trial geography bridge with fact-key caching."""
+    """Test trial geography UNION bridge (structured + free-text sources)."""
 
     @pytest.fixture
     def transformer(self):
         """Create transformer with trial and geography caches."""
         mock_extractor = MagicMock()
         t = Transformer(mock_extractor)
-        # Cache fact_clinical_trial_event by vin_clinicaltrialid
         t._dim_caches["fact_clinical_trial_event"] = {"trial-abc": 1, "trial-def": 2}
         t._dim_caches["dim_geography"] = {"country-001": 10, "country-002": 11}
+        t._dim_caches["dim_geography_by_country_name"] = {"India": 10, "Egypt": 11}
         return t
 
-    def test_trial_geography_bridge(self, transformer, monkeypatch):
-        """Trial geography bridge resolves trial and country FKs."""
+    def test_structured_source_resolves_fks(self, transformer):
+        """Structured junction table source resolves trial and country FKs."""
+        source_def = {
+            "table": "vin_vin_clinicaltrial_vin_countryset",
+            "trial_col": "vin_clinicaltrialid",
+            "country_col": "vin_countryid",
+            "structured": True,
+        }
         transformer.extractor.extract_table.return_value = [
             {"vin_clinicaltrialid": "trial-abc", "vin_countryid": "country-001"},
-            {"vin_clinicaltrialid": "trial-abc", "vin_countryid": "country-002"},
-            {"vin_clinicaltrialid": "trial-def", "vin_countryid": "country-001"},
+            {"vin_clinicaltrialid": "trial-def", "vin_countryid": "country-002"},
         ]
 
-        test_map = dict(schema_map.STAR_SCHEMA_MAP)
-        test_map["bridge_trial_geography"] = {
-            "_source_table": "vin_vin_clinicaltrial_vin_countryset",
-            "_pk": None,
-            "_special": {"trial_bridge": True},
-            "trial_key": "FK:fact_clinical_trial_event.clinicaltrialid|vin_clinicaltrialid",
-            "country_key": "FK:dim_geography.vin_countryid|vin_countryid",
-        }
-        monkeypatch.setattr(schema_map, "STAR_SCHEMA_MAP", test_map)
-        monkeypatch.setattr(bridges_mod, "STAR_SCHEMA_MAP", test_map)
+        result = collect_structured_trial_geography_rows(transformer, source_def)
 
-        result = transform_bridge(transformer, "bridge_trial_geography")
-
-        assert len(result) == 3
+        assert len(result) == 2
         assert result[0] == {"trial_key": 1, "country_key": 10}
-        assert result[1] == {"trial_key": 1, "country_key": 11}
-        assert result[2] == {"trial_key": 2, "country_key": 10}
+        assert result[1] == {"trial_key": 2, "country_key": 11}
+
+    def test_free_text_source_parses_locations(self, transformer):
+        """Free-text locations source parses countries and maps to trial_key."""
+        source_def = {
+            "table": "vin_clinicaltrials",
+            "trial_col": "clinicaltrialid",
+            "country_col": "locations",
+            "parse_trial_locations": True,
+        }
+        transformer.extractor.extract_table.return_value = [
+            {"clinicaltrialid": "trial-abc", "locations": "India|Egypt"},
+        ]
+
+        result = collect_trial_geography_rows(transformer, source_def)
+
+        assert len(result) == 2
+        assert {"trial_key": 1, "country_key": 10} in result
+        assert {"trial_key": 1, "country_key": 11} in result
+
+    def test_union_deduplicates_across_sources(self, transformer):
+        """Same trial+country from structured and free-text is deduplicated."""
+
+        def mock_extract(table):
+            if table == "vin_vin_clinicaltrial_vin_countryset":
+                return [{"vin_clinicaltrialid": "trial-abc", "vin_countryid": "country-001"}]
+            if table == "vin_clinicaltrials":
+                return [{"clinicaltrialid": "trial-abc", "locations": "India"}]
+            return []
+
+        transformer.extractor.extract_table.side_effect = mock_extract
+
+        config = {}
+        special = {
+            "trial_bridge": True,
+            "union_sources": [
+                {
+                    "table": "vin_vin_clinicaltrial_vin_countryset",
+                    "trial_col": "vin_clinicaltrialid",
+                    "country_col": "vin_countryid",
+                    "structured": True,
+                },
+                {
+                    "table": "vin_clinicaltrials",
+                    "trial_col": "clinicaltrialid",
+                    "country_col": "locations",
+                    "parse_trial_locations": True,
+                },
+            ],
+        }
+
+        result = transform_union_bridge(transformer, "bridge_trial_geography", config, special)
+
+        # country-001 -> key 10, India -> key 10: same pair, should be deduplicated
+        assert len(result) == 1
+        assert result[0] == {"trial_key": 1, "country_key": 10}
+
+    def test_free_text_skips_null_locations(self, transformer):
+        """Trials with NULL locations produce no geography rows."""
+        source_def = {
+            "table": "vin_clinicaltrials",
+            "trial_col": "clinicaltrialid",
+            "country_col": "locations",
+            "parse_trial_locations": True,
+        }
+        transformer.extractor.extract_table.return_value = [
+            {"clinicaltrialid": "trial-abc", "locations": None},
+        ]
+
+        result = collect_trial_geography_rows(transformer, source_def)
+        assert result == []
+
+    def test_free_text_skips_unresolvable_trials(self, transformer):
+        """Trials not in the fact cache are skipped."""
+        source_def = {
+            "table": "vin_clinicaltrials",
+            "trial_col": "clinicaltrialid",
+            "country_col": "locations",
+            "parse_trial_locations": True,
+        }
+        transformer.extractor.extract_table.return_value = [
+            {"clinicaltrialid": "unknown-trial", "locations": "India"},
+        ]
+
+        result = collect_trial_geography_rows(transformer, source_def)
+        assert result == []
 
 
 class TestUnionBridgeDeveloperLocation:
@@ -396,15 +476,15 @@ class TestParseTrialLocations:
         assert result == ["Colombia"]
 
 
-class TestUnionBridgeTrialLocation:
-    """Test Trial Location sourced from vin_clinicaltrials via parse_trial_locations."""
+class TestTrialGeographyFreeTextParsing:
+    """Test free-text trial location parsing via bridge_trial_geography UNION."""
 
     @pytest.fixture
     def transformer(self):
         """Create transformer with mocked extractor and caches."""
         mock_extractor = MagicMock()
         t = Transformer(mock_extractor)
-        t._dim_caches["dim_candidate_core"] = {"cand-1": 1, "cand-2": 2}
+        t._dim_caches["fact_clinical_trial_event"] = {"trial-1": 1, "trial-2": 2}
         t._dim_caches["dim_geography_by_country_name"] = {
             "India": 10,
             "Egypt": 11,
@@ -417,151 +497,68 @@ class TestUnionBridgeTrialLocation:
     def _source_def(self):
         return {
             "table": "vin_clinicaltrials",
-            "candidate_col": "candidate_value",
+            "trial_col": "clinicaltrialid",
             "country_col": "locations",
-            "location_scope": "Trial Location",
             "parse_trial_locations": True,
         }
 
-    def _config(self):
-        return {
-            "_source_table": "UNION",
-            "_pk": None,
-            "_special": {"union_sources": [self._source_def()]},
-            "candidate_key": "FK:dim_candidate_core.candidateid|candidate_col",
-            "country_key": "FK:dim_geography.vin_countryid|country_col",
-            "location_scope": "LITERAL:location_scope",
-        }
-
     def test_simple_country_name(self, transformer):
-        """Simple country name produces one bridge row."""
+        """Simple country name produces one bridge row with trial_key."""
         transformer.extractor.extract_table.return_value = [
-            {"candidate_value": "cand-1", "locations": "India"},
+            {"clinicaltrialid": "trial-1", "locations": "India"},
         ]
-        result = transform_union_bridge(
-            transformer,
-            "bridge_candidate_geography",
-            self._config(),
-            self._config()["_special"],
-        )
-        assert result == [
-            {"candidate_key": 1, "country_key": 10, "location_scope": "Trial Location"},
-        ]
+        result = collect_trial_geography_rows(transformer, self._source_def())
+        assert result == [{"trial_key": 1, "country_key": 10}]
 
     def test_alias_resolution(self, transformer):
         """'USA' resolves to 'United States of America'."""
         transformer.extractor.extract_table.return_value = [
-            {"candidate_value": "cand-1", "locations": "USA"},
+            {"clinicaltrialid": "trial-1", "locations": "USA"},
         ]
-        result = transform_union_bridge(
-            transformer,
-            "bridge_candidate_geography",
-            self._config(),
-            self._config()["_special"],
-        )
-        assert result == [
-            {"candidate_key": 1, "country_key": 12, "location_scope": "Trial Location"},
-        ]
+        result = collect_trial_geography_rows(transformer, self._source_def())
+        assert result == [{"trial_key": 1, "country_key": 12}]
 
     def test_case_insensitive(self, transformer):
         """Case-insensitive matching works."""
         transformer.extractor.extract_table.return_value = [
-            {"candidate_value": "cand-1", "locations": "thailand"},
+            {"clinicaltrialid": "trial-1", "locations": "thailand"},
         ]
-        result = transform_union_bridge(
-            transformer,
-            "bridge_candidate_geography",
-            self._config(),
-            self._config()["_special"],
-        )
-        assert result == [
-            {"candidate_key": 1, "country_key": 13, "location_scope": "Trial Location"},
-        ]
+        result = collect_trial_geography_rows(transformer, self._source_def())
+        assert result == [{"trial_key": 1, "country_key": 13}]
 
     def test_pipe_delimited(self, transformer):
         """Pipe-delimited locations produce multiple entries."""
         transformer.extractor.extract_table.return_value = [
-            {"candidate_value": "cand-1", "locations": "India|Egypt"},
+            {"clinicaltrialid": "trial-1", "locations": "India|Egypt"},
         ]
-        result = transform_union_bridge(
-            transformer,
-            "bridge_candidate_geography",
-            self._config(),
-            self._config()["_special"],
-        )
+        result = collect_trial_geography_rows(transformer, self._source_def())
         assert len(result) == 2
-        assert {"candidate_key": 1, "country_key": 10, "location_scope": "Trial Location"} in result
-        assert {"candidate_key": 1, "country_key": 11, "location_scope": "Trial Location"} in result
-
-    def test_semicolon_delimited(self, transformer):
-        """Semicolon-delimited locations produce multiple entries."""
-        transformer.extractor.extract_table.return_value = [
-            {"candidate_value": "cand-1", "locations": "India;Egypt"},
-        ]
-        result = transform_union_bridge(
-            transformer,
-            "bridge_candidate_geography",
-            self._config(),
-            self._config()["_special"],
-        )
-        assert len(result) == 2
+        assert {"trial_key": 1, "country_key": 10} in result
+        assert {"trial_key": 1, "country_key": 11} in result
 
     def test_address_extraction(self, transformer):
         """Address-like string extracts country from last comma-separated part."""
         transformer.extractor.extract_table.return_value = [
             {
-                "candidate_value": "cand-1",
+                "clinicaltrialid": "trial-1",
                 "locations": "Mount Sinai Hospital, Toronto, Ontario, Canada",
             },
         ]
-        result = transform_union_bridge(
-            transformer,
-            "bridge_candidate_geography",
-            self._config(),
-            self._config()["_special"],
-        )
-        assert result == [
-            {"candidate_key": 1, "country_key": 14, "location_scope": "Trial Location"},
-        ]
+        result = collect_trial_geography_rows(transformer, self._source_def())
+        assert result == [{"trial_key": 1, "country_key": 14}]
 
     def test_unknown_skipped(self, transformer):
         """'Unknown' locations produce no entries."""
         transformer.extractor.extract_table.return_value = [
-            {"candidate_value": "cand-1", "locations": "Unknown"},
+            {"clinicaltrialid": "trial-1", "locations": "Unknown"},
         ]
-        result = transform_union_bridge(
-            transformer,
-            "bridge_candidate_geography",
-            self._config(),
-            self._config()["_special"],
-        )
+        result = collect_trial_geography_rows(transformer, self._source_def())
         assert result == []
 
     def test_null_locations_skipped(self, transformer):
         """None locations produce no entries."""
         transformer.extractor.extract_table.return_value = [
-            {"candidate_value": "cand-1", "locations": None},
+            {"clinicaltrialid": "trial-1", "locations": None},
         ]
-        result = transform_union_bridge(
-            transformer,
-            "bridge_candidate_geography",
-            self._config(),
-            self._config()["_special"],
-        )
+        result = collect_trial_geography_rows(transformer, self._source_def())
         assert result == []
-
-    def test_deduplication(self, transformer):
-        """Same candidate+country from multiple trials produces one row."""
-        transformer.extractor.extract_table.return_value = [
-            {"candidate_value": "cand-1", "locations": "India"},
-            {"candidate_value": "cand-1", "locations": "India"},
-        ]
-        result = transform_union_bridge(
-            transformer,
-            "bridge_candidate_geography",
-            self._config(),
-            self._config()["_special"],
-        )
-        assert result == [
-            {"candidate_key": 1, "country_key": 10, "location_scope": "Trial Location"},
-        ]
