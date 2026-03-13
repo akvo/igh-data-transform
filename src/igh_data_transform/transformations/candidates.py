@@ -50,7 +50,7 @@ _RD_STAGE_MAPPING = {
     "Preclinical": "Discovery & Preclinical",
     "Preclinical - Vaccines": "Discovery & Preclinical",
     "Preclinical - Drugs": "Discovery & Preclinical",
-    "Primary and secondary screening and optimisation": "Discovery & Preclinical",
+    "Primary and secondary screening and optimisation": "Primary and secondary screening and optimisation",
     # → Early development
     "Development": "Early development",
     "Early development (concept and research)": "Early development",
@@ -72,7 +72,7 @@ _RD_STAGE_MAPPING = {
     "Clinical evaluation": "Late development",
     # → Previously Regulatory filing - Now Approved
     "Regulatory filing - Diagnostics": "Approved",
-    "PQ listing and regulatory approval": "Approved",
+    "PQ listing and regulatory approval": "PQ listing and regulatory approval",
     # → Approved
     "Approved product": "Approved",
     # → Previously Post-marketing surveillance - Now Approved
@@ -84,7 +84,7 @@ _RD_STAGE_MAPPING = {
     # Roll up already-resolved lookup names (from vin_rdstages.vin_name)
     "Post-marketing surveillance": "Approved",
     "Regulatory filing": "Approved",
-    "Human safety & efficacy": "Approved",
+    "Human safety & efficacy": "Human safety & efficacy",
     # Normalize spelling
     "Not applicable": "Not applicable",
     "N/A": "Not applicable",
