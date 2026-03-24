@@ -15,11 +15,9 @@ _COLUMNS_TO_DROP = [
     "crc8b_updatedforipps20",
     "vin_stringentregulatoryauthoritysraapprovalda",
     "vin_includeinevgendatabase",
-    "new_platform",
     "new_personslivingwithhiv",
     "vin_id",
     "crc8b_ghtcroireviewstatus",
-    "vin_2019candidateidnumber",
     "new_medicated",
     "crc8b_ndpipelinereviewstatus",
     "vin_numberofcountrieswithproductapproval_date",
@@ -35,16 +33,12 @@ _COLUMNS_TO_DROP = [
     "new_durationofaction",
     "new_reviewstatus",
     "vin_fdapregnancylabelingpregnancyrisksummary",
-    "_vin_captype_value",
     "new_regionofregistration",
     "new_estimateddateofregulatoryfiling",
     "vin_regionspecificityaggregated",
     "vin_sbereviewdate",
-    "new_2023includeinevgendatabase",
-    "vin_currentrdstage",
     "vin_evgenreviewcompleted",
     "timezoneruleversionnumber",
-    "new_testformat",
     "new_aim1clinicalusestatus",
     "new_updatedforaim20",
     "new_includeinaim1",
@@ -61,15 +55,12 @@ _COLUMNS_TO_DROP = [
     "createdon",
     "statuscode",
     "crc8b_updatedforndpipeline",
-    "vin_2019archetype",
     "vin_nationalregulatoryauthorityapprovaldate",
     "new_tppreviewrequired",
     "vin_otherindications",
     "vin_includeinwellcomesbedatabase",
-    "new_includeinportal2025",
     "new_aim1archetype",
     "new_reviewdateipps30",
-    "new_chimstudyyesno",
     "vin_productiontechniqueandorimmunizationstrat",
     "new_ipps30reviewstatus",
     "vin_reviewnotes",
@@ -78,19 +69,15 @@ _COLUMNS_TO_DROP = [
     "new_mamedicinesubtype",
     "crc8b_includeinghtcroi",
     "new_includeinwhpipeline",
-    "vin_2019pcrpipelineinclusion",
     "vin_adisurl",
     "new_ctregistrylink2",
     "_owninguser_value",
-    "vin_2019disease",
     "crc8b_platformtechnologyused",
     "new_dateforstream",
     "_vin_pipct_value",
     "new_reviewdate",
     "new_cttitle",
     "new_includeinipps30",
-    "vin_ifyesdoesclinicaltrialevidencepredate2015",
-    "vin_2019product",
     "new_snakespecies_producttestedin",
     "new_safetyandreactogenicityprofile",
     "new_pesubtype",
@@ -98,32 +85,26 @@ _COLUMNS_TO_DROP = [
     "new_exportorder",
     "new_updatedforipps30",
     "vin_syndromicprofiles",
-    "vin_routeofadministrationaggregated",
     "new_safetyreactogenicityprofile",
     "vin_isthereevidencethatthecandidatehasbeentes",
     "_vin_archetype_value",
     "new_clinicaltrialgeographicallocation",
-    "vin_2019candidatename",
     "crc8b_srhprofilestatus",
     "new_includeinaim2",
-    "vin_2019complexitysecondpass",
     "crc8b_includeinippscdf",
     "new_aim1pcrreviewnotes",
     "vin_inactivedevelopmenttype",
     "new_impactmodellingurl",
     "new_aim1devstatus",
-    "new_2024includeinpipeline",
     "vin_countryspecificityaggregated",
     "new_whprofilestatus",
     "new_efficacyandclinicalendpoints",
     "new_aim1identifier",
     "crc8b_originofipps20update",
-    "vin_2019subdisease",
     "vin_stringentregulatoryauthoritysraapproval",
     "new_aim1highestrdstage",
     "crc8b_includeinndpipeline",
     "_new_numberofcts_value",
-    "vin_2019status",
     "_ownerid_value",
     "crc8b_includeinsrhpipeline",
     "new_whereistheresearchlocated",
@@ -132,7 +113,6 @@ _COLUMNS_TO_DROP = [
     "vin_iggformatrecombinant",
     "new_ctregistrylink3",
     "vin_includeinp2imodel",
-    "new_includeinpipeline2021",
     "json_response",
     "sync_time",
     "vin_igfinalproducttypepreparationifapplicable",
@@ -143,6 +123,23 @@ _COLUMNS_TO_DROP = [
     "_owningbusinessunit_value",
     "new_interactionwithotherpharmacologicalproducts",
     "_vin_clinicalusestatus_value",
+    "new_reviewdatemaster",
+    # Backfill-created base columns not needed downstream
+    "vin_candidateidnumber",
+    "vin_stagepcr",
+    "new_rdstage",
+    "vin_archetype",
+    "new_includeinportal",
+    "vin_pcrpipelineinclusion",
+    "vin_notes",
+    "vin_disease",
+    "vin_ifyesdoesclinicaltrialevidencepredate",
+    "vin_candidatename",
+    "vin_complexitysecondpass",
+    "vin_subdisease",
+    "vin_status",
+    "new_typeofupdate",
+    "new_includeinevgendatabase",
 ]
 
 _COLUMN_RENAMES = {
@@ -158,7 +155,15 @@ _COLUMN_RENAMES = {
     "vin_approvedforuseinpregnantorlactatingwomen": "approvedforuseinpregnantorlactatingwomen",
     "new_technologyprinciple": "technologyprinciple",
     "new_ctenddate": "ctenddate",
-    "vin_2019developers": "2019developers",
+    # Backfill-created base columns
+    "vin_developers": "2019developers",
+    "new_knownfunders": "knownfunders",
+    "new_knownfundersaggregated": "knownfundersaggregated_temporal",
+    "new_developers": "developers",
+    "new_developersaggregated": "developersaggregated_temporal",
+    "new_currentrdstage": "currentrdstage",
+    "new_includeinpipeline": "includeinpipeline",
+    "new_developmentstatus": "developmentstatus_temporal",
     "vin_usfdaapprovaldate": "usfdaapprovaldate",
     "vin_alternativenames": "alternativenames",
     "vin_product": "product",
@@ -166,10 +171,8 @@ _COLUMN_RENAMES = {
     "vin_target": "target",
     "vin_emaapprovalstatus": "emaapprovalstatus",
     "vin_inactivedevelopmentreason": "inactivedevelopmentreason",
-    "new_2024knownfunders": "2024knownfunders",
     "vin_emaapprovaldate": "emaapprovaldate",
     "vin_previouslyidentifiedcandidate": "previouslyidentifiedcandidate",
-    "new_2023knownfundersaggregated": "2023knownfunders",
     "crc8b_srhindication": "WH_indication",
     "vin_developersaggregated": "developersaggregated",
     "vin_japanesemhlwapprovalstatus": "japanesemhlwapprovalstatus",
@@ -179,7 +182,6 @@ _COLUMN_RENAMES = {
     "vin_technologytype": "technologytype",
     "new_snakespeciesagainst": "snakespeciesagainst",
     "vin_numberofcountrieswithproductapproval": "numberofcountrieswithproductapproval",
-    "new_developers2025": "developers2025",
     "vin_indication": "indication",
     "vin_snakespecies": "snakespecies",
     "vin_specifictargettoxinclass": "specifictargettoxinclass",
@@ -189,15 +191,11 @@ _COLUMN_RENAMES = {
     "new_indicationtype": "indicationtype",
     "vin_mechanismofaction": "mechanismofaction",
     "vin_recentupdates": "recentupdates",
-    "new_knownfunders2025": "knownfunders2025",
     "vin_usfdaapprovalstatus": "usfdaapprovalstatus",
     "vin_preclinicalresultsstatus": "preclinicalresultsstatus",
-    "new_2023developersaggregated": "2023developersaggregated",
     "new_anticipatedsranraandwhopqstrategy": "anticipatedwhostrategy",
     "vin_whoprequalification": "whoprequalification",
-    "new_2024developersaggregated": "2024developersaggregated",
     "vin_healthcarefacilitylevel": "healthcarefacilitylevel",
-    "new_2023currentrdstage": "2023currentrdstage",
     "_vin_mainproduct_value": "mainproduct_value",
     "_vin_subproduct_value": "subproduct_value",
     "_vin_secondarydisease_value": "secondarydisease_value",
@@ -209,22 +207,22 @@ _COLUMN_RENAMES = {
     "vin_japanesemhlwapprovaldate": "japanesemhlwapprovaldate",
     "vin_developmentstatus": "developmentstatus",
     "vin_snakefamily": "snakefamily",
-    "new_2024currentrdstage": "2024rdstage",
     "vin_otherstringentregulatoryauthoritydate": "otherSRAdate",
     "vin_nationalregulatoryauthorityapprovalstatus": "NRAapprovalstatus",
-    "new_2024developmentstatus": "2024developmentstatus",
     "_vin_disease_value": "diseasevalue",
-    "new_includeinpipeline": "includeinpipeline",
     "vin_whosnakespeciesriskcategory": "whosnakespeciesriskcategory",
     "vin_preclinicalresultssource": "preclinicalresultssource",
     "vin_countrieswhereproductisapprovedaggregated": "countries_product_approved",
     "new_whoparaspecificityspecies": "whoparaspecificityspecies",
     "vin_thermostability": "thermostability",
     "new_peseverity": "peseverity",
-    "new_2023developmentstatus": "2023developmentstatus",
     "_vin_currentrndstage_value": "rdstage_value",
+    "_vin_captype_value": "captype_value",
+    "new_testformat": "testformat",
+    "vin_routeofadministrationaggregated": "routeofadministration",
+    "new_platform": "platform",
+    "new_chimstudyyesno": "chimstudyyesno",
     "vin_approvingauthority": "approvingauthority",
-    "vin_2019stagepcr": "2019RDstage",
 }
 
 _PRODUCT_TYPE_MAPPING = {
@@ -290,54 +288,6 @@ _APPROVAL_STATUS_CODES_TO_REMOVE = {862890001}
 _APPROVING_AUTHORITY_CODES_TO_REMOVE = {909670002}
 
 
-def _expand_temporal_rows(df: pd.DataFrame) -> pd.DataFrame:
-    """Create time-versioned rows for SCD2 tracking.
-
-    For each candidate, creates up to 3 rows (2023, 2024, 2025) based on
-    which year columns have non-null RD stage values.
-
-    Args:
-        df: Filtered candidates DataFrame with renamed columns.
-
-    Returns:
-        Expanded DataFrame with RD_stage, valid_from, valid_to columns.
-    """
-    frames = []
-
-    # 2023 data
-    df_2023 = df[df["2023currentrdstage"].notna()].copy()
-    if not df_2023.empty:
-        df_2023["RD_stage"] = df_2023["2023currentrdstage"]
-        df_2023["valid_from"] = "2023-01-01"
-        df_2023["valid_to"] = "2023-12-31"
-        frames.append(df_2023)
-
-    # 2024 data
-    df_2024 = df[df["2024rdstage"].notna()].copy()
-    if not df_2024.empty:
-        df_2024["RD_stage"] = df_2024["2024rdstage"]
-        df_2024["valid_from"] = "2024-01-01"
-        df_2024["valid_to"] = "2024-12-31"
-        frames.append(df_2024)
-
-    # Most recent (2025)
-    df_mr = df[df["rdstage_value"].notna()].copy()
-    if not df_mr.empty:
-        df_mr["RD_stage"] = df_mr["rdstage_value"]
-        df_mr["valid_from"] = "2025-01-01"
-        df_mr["valid_to"] = "2025-12-31"
-        frames.append(df_mr)
-
-    if not frames:
-        df_result = df.copy()
-        df_result["RD_stage"] = None
-        return df_result
-
-    df_expand = pd.concat(frames, ignore_index=True)
-    df_expand = df_expand.sort_values(by=["candidate_name"])
-    return df_expand
-
-
 def transform_candidates(
     df: pd.DataFrame,
     option_sets: dict[str, pd.DataFrame] | None = None,
@@ -365,8 +315,9 @@ def transform_candidates(
         df = replace_values(df, "pressuretype", _PRESSURE_TYPE_MAPPING)
     if "product" in df.columns:
         df = replace_values(df, "product", _PRODUCT_TYPE_MAPPING)
-    if "2024rdstage" in df.columns:
-        df = replace_values(df, "2024rdstage", _RD_STAGE_MAPPING)
+    # Normalize R&D stage names in the backfill-consolidated currentrdstage
+    if "currentrdstage" in df.columns:
+        df = replace_values(df, "currentrdstage", _RD_STAGE_MAPPING)
 
     # Consolidate option set code values
     if "approvalstatus" in df.columns:
@@ -374,17 +325,14 @@ def transform_candidates(
     if "approvingauthority" in df.columns:
         df = replace_values(df, "approvingauthority", _APPROVING_AUTHORITY_CONSOLIDATION)
 
-    # Filter to pipeline-included candidates
-    if "includeinpipeline" in df.columns:
-        df = df[
-            (df["includeinpipeline"] == 100000000)
-            | (df["includeinpipeline"] == 100000002)
-        ].copy()
+    # No candidate filtering — all candidates are included; the original ETL
+    # did not filter by includeinpipeline. Pipeline inclusion is tracked as a
+    # dimension attribute, not used for row exclusion.
 
-    # Temporal expansion
-    df = _expand_temporal_rows(df)
+    # No temporal expansion — the backfill engine already creates proper SCD2
+    # versions with valid_from/valid_to across all reporting years.
 
-    # Consolidate indication type and preclinical results (after expansion)
+    # Consolidate indication type and preclinical results
     if "indicationtype" in df.columns:
         df = replace_values(df, "indicationtype", _INDICATION_TYPE_CONSOLIDATION)
     if "preclinicalresultsstatus" in df.columns:

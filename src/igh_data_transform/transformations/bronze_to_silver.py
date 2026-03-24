@@ -1,9 +1,12 @@
 """Bronze to Silver layer transformation orchestration."""
 
 import sqlite3
+import tempfile
+from pathlib import Path
 
 import pandas as pd
 
+from igh_data_transform.temporal_backfill import BackfillEngine
 from igh_data_transform.transformations.candidates import transform_candidates
 from igh_data_transform.transformations.cleanup import (
     drop_empty_columns,
@@ -15,6 +18,13 @@ from igh_data_transform.transformations.clinical_trials import transform_clinica
 from igh_data_transform.transformations.diseases import transform_diseases
 from igh_data_transform.transformations.priorities import transform_priorities
 from igh_data_transform.utils.database import DatabaseManager
+
+# Path to temporal columns report bundled with the package
+_TEMPORAL_REPORT_PATH = str(
+    Path(__file__).resolve().parent.parent
+    / "temporal_backfill"
+    / "temporal_columns_report.json"
+)
 
 # Registry mapping table names to their specific transformer and required option sets.
 TABLE_REGISTRY: dict[str, dict] = {
@@ -107,13 +117,38 @@ def _load_option_sets(
     return option_sets
 
 
+def _run_temporal_backfill(bronze_db_path: str) -> str:
+    """Run temporal backfill on the raw Bronze DB.
+
+    Consolidates year-specific columns (e.g., new_2023currentrdstage,
+    new_2024currentrdstage) into single base columns with proper SCD2
+    valid_from/valid_to temporal versioning.
+
+    Args:
+        bronze_db_path: Path to raw Bronze database.
+
+    Returns:
+        Path to the backfilled intermediate database (temp file).
+    """
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    tmp.close()
+
+    engine = BackfillEngine(
+        raw_db=bronze_db_path,
+        report_path=_TEMPORAL_REPORT_PATH,
+        output_db=tmp.name,
+    )
+    engine.run()
+
+    return tmp.name
+
+
 def bronze_to_silver(bronze_db_path: str, silver_db_path: str) -> bool:
     """Transform Bronze layer to Silver layer.
 
-    Reads tables from the Bronze database, applies cleanup transformations,
-    and writes the results to the Silver database. Registered tables are
-    dispatched to their table-specific transformers; all other tables
-    receive generic cleanup.
+    First runs a temporal backfill to consolidate year-specific columns
+    into SCD2 temporal versions, then applies table-specific transformers
+    and generic cleanup.
 
     Args:
         bronze_db_path: Path to the Bronze layer SQLite database.
@@ -122,10 +157,18 @@ def bronze_to_silver(bronze_db_path: str, silver_db_path: str) -> bool:
     Returns:
         True if transformation succeeded, False otherwise.
     """
+    backfilled_db_path = None
     try:
-        # Get list of tables from Bronze database
-        with DatabaseManager(bronze_db_path) as bronze_db:
-            cursor = bronze_db.execute(
+        # Phase 0: Temporal backfill — consolidate year-specific columns
+        # into base columns with SCD2 valid_from/valid_to versioning.
+        backfilled_db_path = _run_temporal_backfill(bronze_db_path)
+
+        # From here on, read from the backfilled DB instead of raw Bronze
+        source_db_path = backfilled_db_path
+
+        # Get list of tables
+        with DatabaseManager(source_db_path) as source_db:
+            cursor = source_db.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
             )
             tables = [row["name"] for row in cursor.fetchall()]
@@ -139,7 +182,7 @@ def bronze_to_silver(bronze_db_path: str, silver_db_path: str) -> bool:
         data_tables = [t for t in tables if t not in option_set_tables]
 
         # Connect to databases
-        bronze_conn = sqlite3.connect(bronze_db_path)
+        source_conn = sqlite3.connect(source_db_path)
         silver_conn = sqlite3.connect(silver_db_path)
 
         # Track which option sets have been cleaned by transformers
@@ -149,7 +192,7 @@ def bronze_to_silver(bronze_db_path: str, silver_db_path: str) -> bool:
         for table_name in data_tables:
             print(f"Transforming table: {table_name}")
 
-            df = pd.read_sql_query(f"SELECT * FROM {table_name}", bronze_conn)  # noqa: S608
+            df = pd.read_sql_query(f"SELECT * FROM {table_name}", source_conn)  # noqa: S608
 
             if df.empty:
                 print(f"  Skipping empty table: {table_name}")
@@ -158,7 +201,7 @@ def bronze_to_silver(bronze_db_path: str, silver_db_path: str) -> bool:
             if table_name in TABLE_REGISTRY:
                 # Dispatch to table-specific transformer
                 entry = TABLE_REGISTRY[table_name]
-                option_sets = _load_option_sets(bronze_conn, entry["option_sets"])
+                option_sets = _load_option_sets(source_conn, entry["option_sets"])
                 df_transformed, cleaned_os = entry["transformer"](
                     df, option_sets=option_sets,
                 )
@@ -180,13 +223,13 @@ def bronze_to_silver(bronze_db_path: str, silver_db_path: str) -> bool:
                 # Write the cleaned version from the transformer
                 df_os = all_cleaned_option_sets[os_table]
             else:
-                # Copy as-is from Bronze
-                df_os = pd.read_sql_query(f"SELECT * FROM {os_table}", bronze_conn)  # noqa: S608
+                # Copy as-is from source
+                df_os = pd.read_sql_query(f"SELECT * FROM {os_table}", source_conn)  # noqa: S608
 
             df_os.to_sql(os_table, silver_conn, if_exists="replace", index=False)
             print(f"  Wrote {len(df_os)} rows to {os_table}")
 
-        bronze_conn.close()
+        source_conn.close()
         silver_conn.close()
         print(f"Bronze to Silver transformation complete: {len(tables)} tables processed")
         return True
@@ -194,3 +237,11 @@ def bronze_to_silver(bronze_db_path: str, silver_db_path: str) -> bool:
     except Exception as e:
         print(f"Error during transformation: {e}")
         return False
+
+    finally:
+        # Clean up temp backfilled DB
+        if backfilled_db_path:
+            try:
+                Path(backfilled_db_path).unlink(missing_ok=True)
+            except OSError:
+                pass

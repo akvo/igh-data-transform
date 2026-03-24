@@ -38,6 +38,11 @@ def create_parser() -> argparse.ArgumentParser:
         required=True,
         help="Path to Silver layer SQLite database",
     )
+    silver_parser.add_argument(
+        "--gold-db",
+        required=True,
+        help="Path to Gold layer SQLite database",
+    )
 
     return parser
 
@@ -61,8 +66,8 @@ def main() -> int:
     if args.command == "silver-to-gold":
         from igh_data_transform.transformations.silver_to_gold import silver_to_gold
 
-        print(f"Transforming Silver to Gold: {args.silver_db}")
-        success = silver_to_gold(args.silver_db)
+        print(f"Transforming Silver to Gold: {args.silver_db} -> {args.gold_db}")
+        success = silver_to_gold(args.silver_db, args.gold_db)
         return 0 if success else 1
 
     return 0
