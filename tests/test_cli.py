@@ -3,10 +3,15 @@
 import subprocess
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 from igh_data_transform.cli import create_parser, main
+
+# The transformations __init__.py shadows the silver_to_gold package with
+# the function of the same name, so string-based patch() can't traverse it.
+_stg_pkg = sys.modules["igh_data_transform.transformations.silver_to_gold"]
 
 
 class TestCLIParser:
@@ -89,9 +94,10 @@ class TestSilverToGoldCommand:
     def test_silver_to_gold_parses_args(self) -> None:
         """Test that silver-to-gold parses arguments correctly."""
         parser = create_parser()
-        args = parser.parse_args(["silver-to-gold", "--silver-db", "/path/silver.db"])
+        args = parser.parse_args(["silver-to-gold", "--silver-db", "/path/silver.db", "--gold-db", "/path/gold.db"])
         assert args.command == "silver-to-gold"
         assert args.silver_db == "/path/silver.db"
+        assert args.gold_db == "/path/gold.db"
 
     def test_silver_to_gold_missing_silver_db(self) -> None:
         """Test that silver-to-gold requires --silver-db."""
@@ -105,12 +111,14 @@ class TestSilverToGoldCommand:
     ) -> None:
         """Test that silver-to-gold command executes successfully."""
         silver_db = tmp_path / "silver.db"
+        gold_db = tmp_path / "gold.db"
         monkeypatch.setattr(
             sys,
             "argv",
-            ["igh-transform", "silver-to-gold", "--silver-db", str(silver_db)],
+            ["igh-transform", "silver-to-gold", "--silver-db", str(silver_db), "--gold-db", str(gold_db)],
         )
-        result = main()
+        with patch.object(_stg_pkg, "run_etl", return_value=True):
+            result = main()
         assert result == 0
 
 
