@@ -213,7 +213,7 @@ STAR_SCHEMA_MAP = {
         "phase_key": "FK:dim_phase.phase_name|EXTRACT_PHASE:currentrdstage",
         "date_key": "FK:dim_date.full_date|EXTRACT_DATE:valid_from",
         "is_active_flag": "CASE WHEN valid_to IS NULL THEN 1 ELSE 0 END",
-        "include_in_pipeline": "includeinpipeline",
+        "include_in_pipeline": "CASE WHEN includeinpipeline = 100000000 THEN 1 WHEN includeinpipeline = 100000002 THEN 1 ELSE 0 END",
     },
     "fact_clinical_trial_event": {
         "_source_table": "vin_clinicaltrials",

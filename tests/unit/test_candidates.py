@@ -3,125 +3,33 @@
 import pandas as pd
 
 from igh_data_transform.transformations.candidates import (
-    _expand_temporal_rows,
     transform_candidates,
 )
-
-
-class TestExpandTemporalRows:
-    """Tests for _expand_temporal_rows function."""
-
-    def test_candidate_with_all_three_years(self):
-        df = pd.DataFrame({
-            "candidate_name": ["CandA"],
-            "2023currentrdstage": ["Phase I"],
-            "2024rdstage": ["Phase II"],
-            "rdstage_value": ["Phase III"],
-            "product": ["Drugs"],
-        })
-        result = _expand_temporal_rows(df)
-        assert len(result) == 3
-        assert "RD_stage" in result.columns
-        stages = list(result["RD_stage"])
-        assert "Phase I" in stages
-        assert "Phase II" in stages
-        assert "Phase III" in stages
-
-    def test_candidate_with_only_some_years(self):
-        df = pd.DataFrame({
-            "candidate_name": ["CandA"],
-            "2023currentrdstage": [None],
-            "2024rdstage": ["Phase II"],
-            "rdstage_value": ["Phase III"],
-            "product": ["Drugs"],
-        })
-        result = _expand_temporal_rows(df)
-        assert len(result) == 2
-
-    def test_candidate_with_only_one_year(self):
-        df = pd.DataFrame({
-            "candidate_name": ["CandA"],
-            "2023currentrdstage": [None],
-            "2024rdstage": [None],
-            "rdstage_value": ["Phase III"],
-            "product": ["Drugs"],
-        })
-        result = _expand_temporal_rows(df)
-        assert len(result) == 1
-
-    def test_rd_stage_column_sourced_correctly(self):
-        df = pd.DataFrame({
-            "candidate_name": ["CandA"],
-            "2023currentrdstage": ["Discovery"],
-            "2024rdstage": ["Preclinical"],
-            "rdstage_value": ["Phase I"],
-            "product": ["Drugs"],
-        })
-        result = _expand_temporal_rows(df)
-        r2023 = result[result["valid_from"] == "2023-01-01"]
-        r2024 = result[result["valid_from"] == "2024-01-01"]
-        r2025 = result[result["valid_from"] == "2025-01-01"]
-        assert r2023["RD_stage"].iloc[0] == "Discovery"
-        assert r2024["RD_stage"].iloc[0] == "Preclinical"
-        assert r2025["RD_stage"].iloc[0] == "Phase I"
-
-    def test_valid_from_valid_to_dates_correct(self):
-        df = pd.DataFrame({
-            "candidate_name": ["CandA"],
-            "2023currentrdstage": ["Phase I"],
-            "2024rdstage": ["Phase II"],
-            "rdstage_value": ["Phase III"],
-            "product": ["Drugs"],
-        })
-        result = _expand_temporal_rows(df)
-        r2023 = result[result["valid_from"] == "2023-01-01"]
-        assert r2023["valid_to"].iloc[0] == "2023-12-31"
-        r2024 = result[result["valid_from"] == "2024-01-01"]
-        assert r2024["valid_to"].iloc[0] == "2024-12-31"
-        r2025 = result[result["valid_from"] == "2025-01-01"]
-        assert r2025["valid_to"].iloc[0] == "2025-12-31"
-
-    def test_result_sorted_by_candidate_name(self):
-        df = pd.DataFrame({
-            "candidate_name": ["Zebra", "Alpha"],
-            "2023currentrdstage": [None, None],
-            "2024rdstage": [None, None],
-            "rdstage_value": ["Phase I", "Phase II"],
-            "product": ["Drugs", "Vaccines"],
-        })
-        result = _expand_temporal_rows(df)
-        assert list(result["candidate_name"]) == ["Alpha", "Zebra"]
-
-    def test_multiple_candidates_with_multiple_years(self):
-        df = pd.DataFrame({
-            "candidate_name": ["CandA", "CandB"],
-            "2023currentrdstage": ["Phase I", "Discovery"],
-            "2024rdstage": ["Phase II", None],
-            "rdstage_value": [None, "Preclinical"],
-            "product": ["Drugs", "Vaccines"],
-        })
-        result = _expand_temporal_rows(df)
-        # CandA: 2023 + 2024 = 2 rows, CandB: 2023 + 2025 = 2 rows
-        assert len(result) == 4
 
 
 class TestTransformCandidates:
     """Tests for transform_candidates function."""
 
     def _make_input_df(self, overrides=None):
-        """Create a minimal input DataFrame mimicking vin_candidates."""
+        """Create a minimal input DataFrame mimicking backfilled vin_candidates.
+
+        After the temporal backfill, year-specific columns are consolidated into
+        base columns (e.g., new_currentrdstage instead of new_2023currentrdstage,
+        new_2024currentrdstage). The backfill also provides proper SCD2
+        valid_from/valid_to.
+        """
         data = {
             # Columns that stay
             "vin_name": ["Candidate A", "Candidate B", "Candidate C"],
             "vin_product": ["Drug", "Diagnostic", "Reservoir targeted vaccines"],
             "new_pressuretype": ["Negative pressure ", "Not applicable ", None],
-            "new_2024currentrdstage": [
+            # Backfill-created base column (consolidated from year-specific)
+            "new_currentrdstage": [
                 "Late development (design and development)",
                 "Phase III - Drugs",
                 "Discovery",
             ],
             "new_includeinpipeline": [100000000.0, 100000002.0, 100000001.0],
-            "new_2023currentrdstage": ["Phase I", None, None],
             "_vin_currentrndstage_value": ["Phase II", "Phase III", None],
             "vin_approvalstatus": [862890001.0, 909670000.0, None],
             "vin_approvingauthority": [909670002.0, 909670001.0, None],
@@ -130,8 +38,17 @@ class TestTransformCandidates:
             "vin_candidateid": ["id-1", "id-2", "id-3"],
             "modifiedon": ["2025-01-01", "2025-01-02", "2025-01-03"],
             "statecode": [0, 0, 0],
-            "valid_from": ["2025-01-01", "2025-01-02", "2025-01-03"],
-            "valid_to": [None, None, None],
+            # SCD2 temporal columns from backfill
+            "valid_from": [
+                "2023-01-01T00:00:00Z",
+                "2024-01-01T00:00:00Z",
+                "2025-01-01T00:00:00Z",
+            ],
+            "valid_to": [
+                "2024-01-01T00:00:00Z",
+                "2025-01-01T00:00:00Z",
+                None,
+            ],
             # Columns to drop (metadata)
             "row_id": [1, 2, 3],
             "json_response": ['{"k":"v"}', '{"k":"v2"}', '{"k":"v3"}'],
@@ -200,9 +117,7 @@ class TestTransformCandidates:
         assert "valid_from" in result.columns
 
     def test_standardizes_product_types(self):
-        df = self._make_input_df(overrides={
-            "new_includeinpipeline": [100000000.0, 100000002.0, 100000000.0],
-        })
+        df = self._make_input_df()
         result, _ = transform_candidates(df)
         products = list(result["product"].unique())
         assert "Drugs" in products
@@ -213,11 +128,9 @@ class TestTransformCandidates:
         assert "Reservoir targeted vaccines" not in products
 
     def test_standardizes_rd_stages(self):
-        df = self._make_input_df(overrides={
-            "new_includeinpipeline": [100000000.0, 100000002.0, 100000000.0],
-        })
+        df = self._make_input_df()
         result, _ = transform_candidates(df)
-        stages = result["2024rdstage"].dropna().unique()
+        stages = result["currentrdstage"].dropna().unique()
         assert "Late development" in stages
         assert "Phase III" in stages
         assert "Discovery and Preclinical" in stages
@@ -231,22 +144,24 @@ class TestTransformCandidates:
         assert "Negative pressure " not in pressures
         assert "Not applicable " not in pressures
 
-    def test_filters_by_includeinpipeline(self):
+    def test_no_includeinpipeline_filtering(self):
+        """All candidates are kept regardless of includeinpipeline value."""
         df = self._make_input_df()
         result, _ = transform_candidates(df)
-        # Candidate C has includeinpipeline=100000001 -> filtered out
-        # Candidates A and B have 100000000 and 100000002 -> kept
+        # All 3 candidates should be present (no filtering)
         candidate_names = result["candidate_name"].unique()
         assert "Candidate A" in candidate_names
         assert "Candidate B" in candidate_names
-        assert "Candidate C" not in candidate_names
+        assert "Candidate C" in candidate_names
 
-    def test_calls_temporal_expansion(self):
+    def test_preserves_scd2_temporal_columns(self):
+        """Backfill-created valid_from/valid_to are preserved as-is."""
         df = self._make_input_df()
         result, _ = transform_candidates(df)
-        assert "RD_stage" in result.columns
-        # Candidate A: 2023 + 2025 = 2 rows, Candidate B: 2025 = 1 row
-        assert len(result) >= 2
+        assert "valid_from" in result.columns
+        assert "valid_to" in result.columns
+        # Row count stays the same (no temporal expansion in transformer)
+        assert len(result) == 3
 
     def test_renames_columns(self):
         df = self._make_input_df()
@@ -257,6 +172,9 @@ class TestTransformCandidates:
         assert "vin_product" not in result.columns
         assert "includeinpipeline" in result.columns
         assert "candidateid" in result.columns
+        # Backfill-created new_currentrdstage -> currentrdstage
+        assert "currentrdstage" in result.columns
+        assert "new_currentrdstage" not in result.columns
 
     def test_approval_status_consolidation(self):
         df = self._make_input_df()

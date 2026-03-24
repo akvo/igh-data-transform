@@ -103,7 +103,22 @@ def parse_case_when(expr: str, row: dict) -> Any:
     if matched:
         return value
 
-    # Pattern 3: Multi-branch CASE WHEN with string comparison values
+    # Multi-branch CASE WHEN with integer comparison and integer results
+    # e.g. CASE WHEN col = 100000000 THEN 1 WHEN col = 100000002 THEN 1 ELSE 0 END
+    int_branches = re.findall(
+        r"WHEN\s+(\w+)\s*=\s*(\d+)\s+THEN\s+(\d+)",
+        expr,
+        re.IGNORECASE,
+    )
+    if int_branches:
+        for col_name, check_val, then_val in int_branches:
+            actual_val = row.get(col_name)
+            if actual_val is not None and int(actual_val) == int(check_val):
+                return int(then_val)
+        else_match = re.search(r"ELSE\s+(\d+)\s+END", expr, re.IGNORECASE)
+        return int(else_match.group(1)) if else_match else None
+
+    # Multi-branch CASE WHEN with string comparison values
     # e.g. CASE WHEN col = 'guid1' THEN 'Label1' WHEN col = 'guid2' THEN 'Label2' ELSE 'Other' END
     branches = re.findall(
         r"WHEN\s+(\w+)\s*=\s*'([^']+)'\s+THEN\s+'([^']+)'",
