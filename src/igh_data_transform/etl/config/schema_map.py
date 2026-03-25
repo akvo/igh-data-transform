@@ -224,7 +224,7 @@ STAR_SCHEMA_MAP = {
         "disease_key": "FK_VIA_CANDIDATE:disease_key",
         "product_key": "FK_VIA_CANDIDATE:product_key",
         "start_date_key": "FK:dim_date.full_date|startdate",
-        "trial_name": "trialid",
+        "trial_name": "name",
         "trial_title": "title",
         "trial_phase": "ctphase",
         "enrollment_count": "COALESCE(cttenrolment, 0)",
