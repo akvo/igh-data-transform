@@ -239,22 +239,51 @@ _PRODUCT_TYPE_MAPPING = {
 }
 
 _RD_STAGE_MAPPING = {
-    "Late development (design and development)": "Late development",
-    "Late development (clinical validation and launch readiness)": "Late development",
-    "Phase III - Drugs": "Phase III",
-    "Not applicable": "N/A",
-    "Discovery": "Discovery and Preclinical",
+    # → Discovery & Preclinical
+    "Discovery": "Discovery & Preclinical",
+    "Discovery and Preclinical": "Discovery & Preclinical",
+    "Discovery and preclinical": "Discovery & Preclinical",
+    "Preclinical": "Discovery & Preclinical",
+    "Preclinical - Vaccines": "Discovery & Preclinical",
+    "Preclinical - Drugs": "Discovery & Preclinical",
+    "Primary and secondary screening and optimisation": "Primary and secondary screening and optimisation",
+    # → Early development
+    "Development": "Early development",
     "Early development (concept and research)": "Early development",
     "Early development (feasibility and planning)": "Early development",
+    # → Phase I
+    "Phase I - Vaccines": "Phase I",
+    # → Phase II  (combo trials map to later phase)
+    "Phase II - Vaccines": "Phase II",
+    "Phase I/II": "Phase II",
+    # → Phase III  (combo trials map to later phase)
+    "Phase III - Drugs": "Phase III",
+    "Phase III - Vaccines": "Phase III",
+    "Phase II/III": "Phase III",
+    # → Late development
+    "Late development (design and development)": "Late development",
+    "Late development (clinical validation and launch readiness)": "Late development",
     "Late development (clinical validation and launch readiness) - Diagnostics": "Late development",
     "Late development - Diagnostics": "Late development",
-    "Phase II - Vaccines": "Phase II",
-    "Phase III - Vaccines": "Phase III",
-    "Phase IV - Vaccines": "Phase IV",
-    "Phase I - Vaccines": "Phase I",
-    "Preclinical - Vaccines": "Preclinical",
-    "Regulatory filing - Diagnostics": "Regulatory filing",
-    "Preclinical - Drugs": "Preclinical",
+    "Clinical evaluation": "Late development",
+    # → Previously Regulatory filing - Now Approved
+    "Regulatory filing - Diagnostics": "Approved",
+    "PQ listing and regulatory approval": "PQ listing and regulatory approval",
+    # → Approved
+    "Approved product": "Approved",
+    # → Previously Post-marketing surveillance - Now Approved
+    "Phase IV": "Approved",
+    "Phase IV - Vaccines": "Approved",
+    "Operational research for diagnostics": "Approved",
+    # → Previously Human safety & efficacy - Now Approved
+    "Post-marketing human safety/efficacy studies (without prior clinical studies)": "Approved",
+    # Roll up already-resolved lookup names (from vin_rdstages.vin_name)
+    "Post-marketing surveillance": "Approved",
+    "Regulatory filing": "Approved",
+    "Human safety & efficacy": "Human safety & efficacy",
+    # Normalize spelling
+    "Not applicable": "Not applicable",
+    "N/A": "Not applicable",
 }
 
 _PRESSURE_TYPE_MAPPING = {
@@ -315,8 +344,16 @@ def transform_candidates(
         df = replace_values(df, "pressuretype", _PRESSURE_TYPE_MAPPING)
     if "product" in df.columns:
         df = replace_values(df, "product", _PRODUCT_TYPE_MAPPING)
-    # Normalize R&D stage names in the backfill-consolidated currentrdstage
+    # Normalize R&D stage names in the backfill-consolidated currentrdstage.
+    # Two-pass approach: first apply the mapping, then strip any remaining
+    # " - ProductType" suffixes (e.g., "Phase I - Biologics" → "Phase I"),
+    # and re-apply the mapping for values exposed after stripping.
     if "currentrdstage" in df.columns:
+        df = replace_values(df, "currentrdstage", _RD_STAGE_MAPPING)
+        mask = df["currentrdstage"].str.contains(" - ", na=False)
+        df.loc[mask, "currentrdstage"] = (
+            df.loc[mask, "currentrdstage"].str.split(" - ").str[0]
+        )
         df = replace_values(df, "currentrdstage", _RD_STAGE_MAPPING)
 
     # Consolidate option set code values
@@ -325,12 +362,13 @@ def transform_candidates(
     if "approvingauthority" in df.columns:
         df = replace_values(df, "approvingauthority", _APPROVING_AUTHORITY_CONSOLIDATION)
 
-    # No candidate filtering — all candidates are included; the original ETL
-    # did not filter by includeinpipeline. Pipeline inclusion is tracked as a
-    # dimension attribute, not used for row exclusion.
-
-    # No temporal expansion — the backfill engine already creates proper SCD2
-    # versions with valid_from/valid_to across all reporting years.
+    # Derive boolean include_in_pipeline from option set codes.
+    # Only code 100000000 means "Yes" (included in pipeline).
+    if "includeinpipeline" in df.columns:
+        _pipeline_codes = {100000000}
+        df["include_in_pipeline"] = (
+            df["includeinpipeline"].isin(_pipeline_codes).astype(int)
+        )
 
     # Consolidate indication type and preclinical results
     if "indicationtype" in df.columns:

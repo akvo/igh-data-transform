@@ -133,7 +133,24 @@ class TestTransformCandidates:
         stages = result["currentrdstage"].dropna().unique()
         assert "Late development" in stages
         assert "Phase III" in stages
-        assert "Discovery and Preclinical" in stages
+        assert "Discovery & Preclinical" in stages
+
+    def test_rd_stage_strips_product_suffix(self):
+        """Two-pass strip: 'Phase I - Biologics' → 'Phase I' after suffix removal."""
+        df = self._make_input_df(overrides={
+            "new_currentrdstage": [
+                "Phase I - Biologics",
+                "Phase II - Vaccines",
+                "Preclinical - Drugs",
+            ],
+        })
+        result, _ = transform_candidates(df)
+        stages = list(result["currentrdstage"])
+        assert "Phase I" in stages
+        assert "Phase II" in stages
+        assert "Discovery & Preclinical" in stages
+        # No raw suffixed values should remain
+        assert not any(" - " in s for s in stages if isinstance(s, str))
 
     def test_standardizes_pressure_types(self):
         df = self._make_input_df()
@@ -153,6 +170,19 @@ class TestTransformCandidates:
         assert "Candidate A" in candidate_names
         assert "Candidate B" in candidate_names
         assert "Candidate C" in candidate_names
+
+    def test_derives_include_in_pipeline_boolean(self):
+        """Only optionset code 100000000 maps to include_in_pipeline=1."""
+        df = self._make_input_df()
+        result, _ = transform_candidates(df)
+        assert "include_in_pipeline" in result.columns
+        # Candidate A: 100000000 → 1, Candidate B: 100000002 → 0, Candidate C: 100000001 → 0
+        cand_a = result[result["candidate_name"] == "Candidate A"]
+        cand_b = result[result["candidate_name"] == "Candidate B"]
+        cand_c = result[result["candidate_name"] == "Candidate C"]
+        assert cand_a["include_in_pipeline"].iloc[0] == 1
+        assert cand_b["include_in_pipeline"].iloc[0] == 0
+        assert cand_c["include_in_pipeline"].iloc[0] == 0
 
     def test_preserves_scd2_temporal_columns(self):
         """Backfill-created valid_from/valid_to are preserved as-is."""
