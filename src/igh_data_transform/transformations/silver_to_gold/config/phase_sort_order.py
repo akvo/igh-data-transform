@@ -40,10 +40,10 @@ PHASE_ALIASES = {
 
 
 def collect_referenced_phase_names(extractor) -> set[str]:
-    """Scan vin_candidates.currentrdstage to find all referenced phase names."""
+    """Scan vin_candidates.new_currentrdstage to find all referenced phase names."""
     referenced: set[str] = set()
-    for row in extractor.extract_table("vin_candidates", ["currentrdstage"]):
-        raw = row.get("currentrdstage")
+    for row in extractor.extract_table("vin_candidates", ["new_currentrdstage"]):
+        raw = row.get("new_currentrdstage")
         if not raw:
             continue
         phase = raw.split(" - ")[0] if " - " in raw else raw
