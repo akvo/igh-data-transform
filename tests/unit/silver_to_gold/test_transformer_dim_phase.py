@@ -33,8 +33,8 @@ class TestCollectReferencedPhaseNames:
         t = _make_transformer(
             [],
             [
-                {"currentrdstage": "Phase I - Drugs"},
-                {"currentrdstage": "Phase II - Vaccines"},
+                {"new_currentrdstage": "Phase I - Drugs"},
+                {"new_currentrdstage": "Phase II - Vaccines"},
             ],
         )
         assert collect_referenced_phase_names(t.extractor) == {"Phase I", "Phase II"}
@@ -44,7 +44,7 @@ class TestCollectReferencedPhaseNames:
         t = _make_transformer(
             [],
             [
-                {"currentrdstage": "Approved"},
+                {"new_currentrdstage": "Approved"},
             ],
         )
         assert collect_referenced_phase_names(t.extractor) == {"Approved"}
@@ -54,7 +54,7 @@ class TestCollectReferencedPhaseNames:
         t = _make_transformer(
             [],
             [
-                {"currentrdstage": "N/A"},
+                {"new_currentrdstage": "N/A"},
             ],
         )
         result = collect_referenced_phase_names(t.extractor)
@@ -66,9 +66,9 @@ class TestCollectReferencedPhaseNames:
         t = _make_transformer(
             [],
             [
-                {"currentrdstage": None},
-                {"currentrdstage": ""},
-                {"currentrdstage": "Phase I - Drugs"},
+                {"new_currentrdstage": None},
+                {"new_currentrdstage": ""},
+                {"new_currentrdstage": "Phase I - Drugs"},
             ],
         )
         assert collect_referenced_phase_names(t.extractor) == {"Phase I"}
@@ -85,8 +85,8 @@ class TestDimPhaseFiltering:
             {"vin_rdstageid": "id-c", "vin_name": "Clinical evaluation"},
         ]
         candidates = [
-            {"currentrdstage": "Phase I - Drugs"},
-            {"currentrdstage": "Phase II - Vaccines"},
+            {"new_currentrdstage": "Phase I - Drugs"},
+            {"new_currentrdstage": "Phase II - Vaccines"},
         ]
         t = _make_transformer(rdstages, candidates)
         result = t.transform_dimension("dim_phase")
@@ -102,7 +102,7 @@ class TestDimPhaseFiltering:
             {"vin_rdstageid": "id-2", "vin_name": "Not applicable"},
         ]
         candidates = [
-            {"currentrdstage": "Not applicable"},
+            {"new_currentrdstage": "Not applicable"},
         ]
         t = _make_transformer(rdstages, candidates)
         result = t.transform_dimension("dim_phase")
@@ -117,8 +117,8 @@ class TestDimPhaseFiltering:
             {"vin_rdstageid": "id-a", "vin_name": "Phase I"},
         ]
         candidates = [
-            {"currentrdstage": "Phase I - Drugs"},
-            {"currentrdstage": "Approved"},  # In PHASE_SORT_ORDER but not in rdstages
+            {"new_currentrdstage": "Phase I - Drugs"},
+            {"new_currentrdstage": "Approved"},  # In PHASE_SORT_ORDER but not in rdstages
         ]
         t = _make_transformer(rdstages, candidates)
         result = t.transform_dimension("dim_phase")
@@ -134,7 +134,7 @@ class TestDimPhaseFiltering:
             {"vin_rdstageid": "id-a", "vin_name": "Phase I"},
         ]
         candidates = [
-            {"currentrdstage": "Phase I - Drugs"},
+            {"new_currentrdstage": "Phase I - Drugs"},
         ]
         t = _make_transformer(rdstages, candidates)
         result = t.transform_dimension("dim_phase")
@@ -148,7 +148,7 @@ class TestDimPhaseFiltering:
             {"vin_rdstageid": "id-a", "vin_name": "Approved"},
         ]
         candidates = [
-            {"currentrdstage": "Approved product - Vaccines"},
+            {"new_currentrdstage": "Approved product - Vaccines"},
         ]
         t = _make_transformer(rdstages, candidates)
         result = t.transform_dimension("dim_phase")

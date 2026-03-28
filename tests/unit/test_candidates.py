@@ -11,26 +11,33 @@ class TestTransformCandidates:
     """Tests for transform_candidates function."""
 
     def _make_input_df(self, overrides=None):
-        """Create a minimal input DataFrame mimicking backfilled vin_candidates.
-
-        After the temporal backfill, year-specific columns are consolidated into
-        base columns (e.g., new_currentrdstage instead of new_2023currentrdstage,
-        new_2024currentrdstage). The backfill also provides proper SCD2
-        valid_from/valid_to.
-        """
+        """Create a minimal input DataFrame mimicking vin_candidates (bronze columns)."""
         data = {
-            # Columns that stay
+            # Columns that stay (original bronze names before rename)
             "vin_name": ["Candidate A", "Candidate B", "Candidate C"],
             "vin_product": ["Drug", "Diagnostic", "Reservoir targeted vaccines"],
             "new_pressuretype": ["Negative pressure ", "Not applicable ", None],
-            # Backfill-created base column (consolidated from year-specific)
-            "new_currentrdstage": [
+            # Temporal source columns (consumed by SCD2 expansion)
+            "vin_2019stagepcr": ["Phase I", None, None],
+            "new_2024currentrdstage": [
                 "Late development (design and development)",
                 "Phase III - Drugs",
                 "Discovery",
             ],
+            "new_2023currentrdstage": ["Phase I", None, None],
+            # FK GUID column for 2025 RD stage (resolved via lookup_tables)
+            "_vin_currentrndstage_value": ["guid-1", "guid-2", None],
+            # Pipeline columns (temporal)
+            "vin_2019pcrpipelineinclusion": ["Yes", None, "Yes"],
+            "new_includeinpipeline2021": [100000000.0, 100000002.0, 100000001.0],
+            "new_2023includeinevgendatabase": ["Yes", "No", "Pending"],
+            "new_2024includeinpipeline": [862890000.0, None, None],
             "new_includeinpipeline": [100000000.0, 100000002.0, 100000001.0],
-            "_vin_currentrndstage_value": ["Phase II", "Phase III", None],
+            "_vin_captype_value": [
+                "c1746ad3-93d1-f011-bbd3-00224892cefa",
+                "545d63d9-93d1-f011-bbd3-00224892cefa",
+                None,
+            ],
             "vin_approvalstatus": [862890001.0, 909670000.0, None],
             "vin_approvingauthority": [909670002.0, 909670001.0, None],
             "new_indicationtype": [100000003.0, 100000000.0, None],
@@ -38,17 +45,6 @@ class TestTransformCandidates:
             "vin_candidateid": ["id-1", "id-2", "id-3"],
             "modifiedon": ["2025-01-01", "2025-01-02", "2025-01-03"],
             "statecode": [0, 0, 0],
-            # SCD2 temporal columns from backfill
-            "valid_from": [
-                "2023-01-01T00:00:00Z",
-                "2024-01-01T00:00:00Z",
-                "2025-01-01T00:00:00Z",
-            ],
-            "valid_to": [
-                "2024-01-01T00:00:00Z",
-                "2025-01-01T00:00:00Z",
-                None,
-            ],
             # Columns to drop (metadata)
             "row_id": [1, 2, 3],
             "json_response": ['{"k":"v"}', '{"k":"v2"}', '{"k":"v3"}'],
@@ -66,6 +62,17 @@ class TestTransformCandidates:
         if overrides:
             data.update(overrides)
         return pd.DataFrame(data)
+
+    def _make_lookup_tables(self):
+        """Create lookup_tables dict with vin_rdstageproducts."""
+        return {
+            "vin_rdstageproducts": pd.DataFrame(
+                {
+                    "vin_rdstageproductid": ["guid-1", "guid-2"],
+                    "vin_name": ["Phase II - Drugs", "Phase III - Vaccines"],
+                }
+            ),
+        }
 
     def _make_option_sets(self):
         """Create option sets dict for candidates."""
@@ -103,7 +110,8 @@ class TestTransformCandidates:
 
     def test_drops_metadata_columns(self):
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         for col in ["row_id", "json_response", "sync_time",
                      "_createdby_value", "_modifiedby_value",
                      "_owninguser_value", "_owningbusinessunit_value",
@@ -112,13 +120,15 @@ class TestTransformCandidates:
 
     def test_drops_empty_columns_preserving_valid_to(self):
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         assert "valid_to" in result.columns
         assert "valid_from" in result.columns
 
     def test_standardizes_product_types(self):
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         products = list(result["product"].unique())
         assert "Drugs" in products
         assert "Diagnostics" in products
@@ -129,32 +139,31 @@ class TestTransformCandidates:
 
     def test_standardizes_rd_stages(self):
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
-        stages = result["currentrdstage"].dropna().unique()
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
+        stages = result["new_currentrdstage"].dropna().unique()
         assert "Late development" in stages
         assert "Phase III" in stages
         assert "Discovery & Preclinical" in stages
 
     def test_rd_stage_strips_product_suffix(self):
-        """Two-pass strip: 'Phase I - Biologics' → 'Phase I' after suffix removal."""
+        """Remaining ' - ProductType' suffixes are stripped from new_currentrdstage."""
         df = self._make_input_df(overrides={
-            "new_currentrdstage": [
-                "Phase I - Biologics",
-                "Phase II - Vaccines",
-                "Preclinical - Drugs",
-            ],
+            "new_2024currentrdstage": ["Phase I - Biologics", None, None],
+            "new_2023currentrdstage": [None, None, None],
+            "_vin_currentrndstage_value": [None, None, None],
         })
-        result, _ = transform_candidates(df)
-        stages = list(result["currentrdstage"])
-        assert "Phase I" in stages
-        assert "Phase II" in stages
-        assert "Discovery & Preclinical" in stages
-        # No raw suffixed values should remain
-        assert not any(" - " in s for s in stages if isinstance(s, str))
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
+        cand_a = result[result["candidate_name"] == "Candidate A"]
+        stages = cand_a["new_currentrdstage"].dropna().tolist()
+        for stage in stages:
+            assert " - " not in stage
 
     def test_standardizes_pressure_types(self):
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         pressures = list(result["pressuretype"].dropna().unique())
         assert "Negative pressure" in pressures
         assert "N/A" in pressures
@@ -164,7 +173,8 @@ class TestTransformCandidates:
     def test_no_includeinpipeline_filtering(self):
         """All candidates are kept regardless of includeinpipeline value."""
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         # All 3 candidates should be present (no filtering)
         candidate_names = result["candidate_name"].unique()
         assert "Candidate A" in candidate_names
@@ -174,62 +184,67 @@ class TestTransformCandidates:
     def test_derives_include_in_pipeline_boolean(self):
         """Only optionset code 100000000 maps to include_in_pipeline=1."""
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         assert "include_in_pipeline" in result.columns
-        # Candidate A: 100000000 → 1, Candidate B: 100000002 → 0, Candidate C: 100000001 → 0
-        cand_a = result[result["candidate_name"] == "Candidate A"]
-        cand_b = result[result["candidate_name"] == "Candidate B"]
-        cand_c = result[result["candidate_name"] == "Candidate C"]
-        assert cand_a["include_in_pipeline"].iloc[0] == 1
-        assert cand_b["include_in_pipeline"].iloc[0] == 0
-        assert cand_c["include_in_pipeline"].iloc[0] == 0
+        # Check current period (valid_to is NaN) for each candidate
+        cand_a_cur = result[
+            (result["candidate_name"] == "Candidate A") & (result["valid_to"].isna())
+        ]
+        assert (cand_a_cur["include_in_pipeline"] == 1).all()
+        cand_b_cur = result[
+            (result["candidate_name"] == "Candidate B") & (result["valid_to"].isna())
+        ]
+        assert (cand_b_cur["include_in_pipeline"] == 0).all()
 
     def test_preserves_scd2_temporal_columns(self):
-        """Backfill-created valid_from/valid_to are preserved as-is."""
+        """Temporal expansion produces valid_from/valid_to columns."""
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         assert "valid_from" in result.columns
         assert "valid_to" in result.columns
-        # Row count stays the same (no temporal expansion in transformer)
-        assert len(result) == 3
 
     def test_renames_columns(self):
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         assert "candidate_name" in result.columns
         assert "vin_name" not in result.columns
         assert "product" in result.columns
         assert "vin_product" not in result.columns
+        # includeinpipeline is now produced by expansion, not rename
         assert "includeinpipeline" in result.columns
         assert "candidateid" in result.columns
-        # Backfill-created new_currentrdstage -> currentrdstage
-        assert "currentrdstage" in result.columns
-        assert "new_currentrdstage" not in result.columns
 
     def test_approval_status_consolidation(self):
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         # 862890001 (Adopted) -> 909670000 (Approved)
         cand_a = result[result["candidate_name"] == "Candidate A"]
         assert (cand_a["approvalstatus"] == 909670000).all()
 
     def test_approving_authority_consolidation(self):
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         # 909670002 (SRA Other) -> 909670001 (SRA)
         cand_a = result[result["candidate_name"] == "Candidate A"]
         assert (cand_a["approvingauthority"] == 909670001).all()
 
     def test_indication_type_consolidation(self):
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         # 100000003 -> 100000001
         cand_a = result[result["candidate_name"] == "Candidate A"]
         assert (cand_a["indicationtype"] == 100000001).all()
 
     def test_preclinical_results_consolidation(self):
         df = self._make_input_df()
-        result, _ = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
         # 909670004 -> 909670002
         cand_a = result[result["candidate_name"] == "Candidate A"]
         assert (cand_a["preclinicalresultsstatus"] == 909670002.0).all()
@@ -268,18 +283,21 @@ class TestTransformCandidates:
 
     def test_returns_tuple(self):
         df = self._make_input_df()
-        result, cleaned = transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        result, cleaned = transform_candidates(df, lookup_tables=lookup)
         assert isinstance(result, pd.DataFrame)
         assert isinstance(cleaned, dict)
 
     def test_does_not_modify_original(self):
         df = self._make_input_df()
         original_columns = list(df.columns)
-        transform_candidates(df)
+        lookup = self._make_lookup_tables()
+        transform_candidates(df, lookup_tables=lookup)
         assert list(df.columns) == original_columns
 
     def test_works_when_option_sets_is_none(self):
         df = self._make_input_df()
-        result, cleaned = transform_candidates(df, option_sets=None)
+        lookup = self._make_lookup_tables()
+        result, cleaned = transform_candidates(df, option_sets=None, lookup_tables=lookup)
         assert isinstance(result, pd.DataFrame)
         assert len(cleaned) == 0

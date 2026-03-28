@@ -363,10 +363,10 @@ class TestRegistryDispatch:
 
         bronze_to_silver(str(bronze_db), str(silver_db))
 
-        # Verify the cleaned option set was written to Silver
+        # Verify the cleaned option set was written to Silver with renamed table
         conn = sqlite3.connect(str(silver_db))
         os_df = pd.read_sql_query(
-            "SELECT * FROM _optionset_new_globalhealtharea", conn
+            "SELECT * FROM _optionset_globalhealtharea", conn
         )
         conn.close()
 
@@ -447,10 +447,10 @@ class TestRegistryDispatch:
 
         bronze_to_silver(str(bronze_db), str(silver_db))
 
-        # The cleaned version should be in Silver (not the raw copy)
+        # The cleaned version should be in Silver with renamed table
         conn = sqlite3.connect(str(silver_db))
         os_df = pd.read_sql_query(
-            "SELECT * FROM _optionset_new_globalhealtharea", conn
+            "SELECT * FROM _optionset_globalhealtharea", conn
         )
         conn.close()
 

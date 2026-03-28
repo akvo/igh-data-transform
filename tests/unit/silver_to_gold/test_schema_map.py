@@ -161,7 +161,7 @@ class TestSchemaMapExpressions:
         config = STAR_SCHEMA_MAP["dim_candidate_core"]
         expr = config["healthcare_facility_level"]
         assert expr.startswith("OPTIONSET:"), f"healthcare_facility_level should use OPTIONSET resolution, got: {expr}"
-        assert "vin_healthcarefacilitylevel" in expr
+        assert "healthcarefacilitylevel" in expr
 
     def test_new_clinical_trial_columns_present(self):
         """fact_clinical_trial_event has all new columns."""
@@ -171,15 +171,15 @@ class TestSchemaMapExpressions:
         assert config["outcome_measure"] == "COALESCE(outcomemeasure_primary, outcomemeasure_secondary)"
         assert config["sex"] == "sex"
         assert config["study_design"] == "study_design"
-        assert config["ct_results_type"] == "OPTIONSET:ctresultstype|vin_ctresultstype"
+        assert config["ct_results_type"] == "OPTIONSET:ctresultstype"
         assert config["ct_terminated_reason"] == "ctterminatedreason"
 
     def test_new_candidate_extract_columns_present(self):
         """dim_candidate_core has 4 new extract custom data columns."""
         config = STAR_SCHEMA_MAP["dim_candidate_core"]
         assert config["route_of_administration"] == "routeofadministration"
-        assert config["platform"] == "platform"
-        assert config["chim_study"] == "OPTIONSET:chimstudyyesno|new_chimstudyyesno"
+        assert config["platform"] == "new_platform"
+        assert config["chim_study"] == "OPTIONSET:chimstudyyesno"
         assert config["key_clinical_trial"] == "ctregistrylink"
 
     def test_fk_expressions_valid(self):
