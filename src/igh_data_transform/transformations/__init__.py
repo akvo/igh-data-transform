@@ -1,6 +1,9 @@
 """Transformation modules for Bronze to Silver to Gold pipeline."""
 
-from igh_data_transform.transformations.bronze_to_silver import bronze_to_silver, transform_table
+from igh_data_transform.transformations.bronze_to_silver import (
+    bronze_to_silver,
+    transform_table,
+)
 from igh_data_transform.transformations.candidates import transform_candidates
 from igh_data_transform.transformations.cleanup import (
     drop_columns_by_name,

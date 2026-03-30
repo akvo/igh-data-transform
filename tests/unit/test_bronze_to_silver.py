@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from igh_data_transform.transformations.bronze_to_silver import (
+    OPTIONSET_RENAMES,
     TABLE_REGISTRY,
     bronze_to_silver,
     transform_table,
@@ -161,7 +162,9 @@ class TestBronzeToSilver:
 
         # Verify Silver database contents
         conn = sqlite3.connect(str(silver_db_path))
-        tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+        tables = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
         table_names = [t[0] for t in tables]
 
         assert "some_table" in table_names
@@ -219,7 +222,9 @@ class TestBronzeToSilver:
 
         assert silver_db.exists()
 
-    def test_overwrites_existing_silver_tables(self, bronze_db: Path, silver_db_path: Path):
+    def test_overwrites_existing_silver_tables(
+        self, bronze_db: Path, silver_db_path: Path
+    ):
         """Test that existing Silver tables are replaced."""
         # Create Silver with different data
         conn = sqlite3.connect(str(silver_db_path))
@@ -281,6 +286,7 @@ class TestRegistryDispatch:
         assert "vin_clinicaltrials" in TABLE_REGISTRY
         assert "vin_diseases" in TABLE_REGISTRY
         assert "vin_rdpriorities" in TABLE_REGISTRY
+        assert "vin_developers" in TABLE_REGISTRY
 
     def test_registered_table_dispatches_to_transformer(self, tmp_path: Path):
         """Registered table uses its specific transformer."""
@@ -321,6 +327,138 @@ class TestRegistryDispatch:
         # Preserves valid_to
         assert "valid_to" in df.columns
         assert "col_a" in df.columns
+
+    def test_lookup_tables_loaded_and_passed_for_developers(self, tmp_path: Path):
+        """lookup_tables (accounts, vin_countries) are loaded and passed to developers."""
+        bronze_db = tmp_path / "bronze.db"
+        silver_db = tmp_path / "silver.db"
+        conn = sqlite3.connect(str(bronze_db))
+
+        # Create minimal vin_developers table
+        conn.execute("""
+            CREATE TABLE vin_developers (
+                vin_developerid TEXT,
+                vin_name TEXT,
+                _vin_cap_value TEXT,
+                _vin_developer_value TEXT,
+                statecode INTEGER,
+                modifiedon TEXT,
+                createdon TEXT,
+                valid_from TEXT,
+                valid_to TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO vin_developers VALUES
+                ('dev-1', 'ProductA - Acme', 'cand-1', 'acc-1',
+                 0, '2025-06-01', '2025-01-01', '2025-01-01', NULL)
+        """)
+
+        # Create accounts lookup table
+        conn.execute("""
+            CREATE TABLE accounts (
+                accountid TEXT,
+                name TEXT,
+                vin_organisationtype TEXT,
+                address1_country TEXT,
+                valid_from TEXT,
+                valid_to TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO accounts VALUES
+                ('acc-1', 'Acme Corp', 'For Profit SME', 'France',
+                 '2025-01-01', NULL)
+        """)
+
+        # Create vin_countries lookup table
+        conn.execute("""
+            CREATE TABLE vin_countries (
+                vin_countryno INTEGER,
+                vin_name TEXT,
+                valid_from TEXT,
+                valid_to TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO vin_countries VALUES
+                (1, 'France', '2025-01-01', NULL)
+        """)
+
+        conn.commit()
+        conn.close()
+
+        bronze_to_silver(str(bronze_db), str(silver_db))
+
+        conn = sqlite3.connect(str(silver_db))
+        df = pd.read_sql_query("SELECT * FROM vin_developers", conn)
+        conn.close()
+
+        # Should have enriched columns
+        assert "org_name" in df.columns
+        assert "country_name" in df.columns
+        assert "org_type" in df.columns
+        assert df["org_name"].iloc[0] == "Acme Corp"
+        assert df["country_name"].iloc[0] == "France"
+        assert df["org_type"].iloc[0] == "For Profit SME"
+        # Renamed columns
+        assert "developerid" in df.columns
+        assert "vin_developerid" not in df.columns
+
+    def test_lookup_tables_loaded_and_passed_for_candidates(self, tmp_path: Path):
+        """lookup_tables (vin_rdstageproducts) are loaded and passed to candidates."""
+        bronze_db = tmp_path / "bronze.db"
+        silver_db = tmp_path / "silver.db"
+        conn = sqlite3.connect(str(bronze_db))
+
+        # Create minimal vin_candidates table
+        conn.execute("""
+            CREATE TABLE vin_candidates (
+                vin_candidateid TEXT,
+                vin_name TEXT,
+                vin_product TEXT,
+                new_2024currentrdstage TEXT,
+                _vin_currentrndstage_value TEXT,
+                new_includeinpipeline REAL,
+                vin_developmentstatus INTEGER,
+                valid_from TEXT,
+                valid_to TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO vin_candidates VALUES
+                ('cand-1', 'CandA', 'Drug', 'Phase I',
+                 'guid-1', 100000000.0, 909670000, '2025-01-01', NULL)
+        """)
+
+        # Create the lookup table (vin_rdstageproducts)
+        conn.execute("""
+            CREATE TABLE vin_rdstageproducts (
+                vin_rdstageproductid TEXT,
+                vin_name TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO vin_rdstageproducts VALUES
+                ('guid-1', 'Phase III - Drugs')
+        """)
+
+        conn.commit()
+        conn.close()
+
+        bronze_to_silver(str(bronze_db), str(silver_db))
+
+        conn = sqlite3.connect(str(silver_db))
+        df = pd.read_sql_query("SELECT * FROM vin_candidates", conn)
+        conn.close()
+
+        # Should have resolved 2025 RD stage from FK
+        rows_2025 = df[df["valid_from"] == "2025-01-01"]
+        assert len(rows_2025) == 1
+        assert rows_2025["new_currentrdstage"].iloc[0] == "Phase III"
+        # FK column should be dropped
+        assert "_vin_currentrndstage_value" not in df.columns
+        assert "_resolved_rdstage_2025" not in df.columns
 
     def test_option_sets_loaded_and_passed_to_transformer(self, tmp_path: Path):
         """Option sets from Bronze are loaded and passed to transformers."""
@@ -363,11 +501,9 @@ class TestRegistryDispatch:
 
         bronze_to_silver(str(bronze_db), str(silver_db))
 
-        # Verify the cleaned option set was written to Silver
+        # Verify the cleaned option set was written to Silver with renamed table
         conn = sqlite3.connect(str(silver_db))
-        os_df = pd.read_sql_query(
-            "SELECT * FROM _optionset_new_globalhealtharea", conn
-        )
+        os_df = pd.read_sql_query("SELECT * FROM _optionset_globalhealtharea", conn)
         conn.close()
 
         # Diseases transformer renames "Sexual & reproductive health" -> "Womens Health"
@@ -447,13 +583,96 @@ class TestRegistryDispatch:
 
         bronze_to_silver(str(bronze_db), str(silver_db))
 
-        # The cleaned version should be in Silver (not the raw copy)
+        # The cleaned version should be in Silver with renamed table
         conn = sqlite3.connect(str(silver_db))
-        os_df = pd.read_sql_query(
-            "SELECT * FROM _optionset_new_globalhealtharea", conn
-        )
+        os_df = pd.read_sql_query("SELECT * FROM _optionset_globalhealtharea", conn)
         conn.close()
 
         labels = list(os_df["label"])
         assert "Womens Health" in labels
         assert "Sexual & reproductive health" not in labels
+
+
+class TestOptionsetRenaming:
+    """Tests for optionset table renaming in Bronze to Silver."""
+
+    def test_optionset_renames_mapping_exists(self):
+        """OPTIONSET_RENAMES contains expected entries."""
+        assert "_optionset_vin_approvalstatus" in OPTIONSET_RENAMES
+        assert (
+            OPTIONSET_RENAMES["_optionset_vin_approvalstatus"]
+            == "_optionset_approvalstatus"
+        )
+        assert "_optionset_new_globalhealtharea" in OPTIONSET_RENAMES
+        assert (
+            OPTIONSET_RENAMES["_optionset_new_globalhealtharea"]
+            == "_optionset_globalhealtharea"
+        )
+
+    def test_renamed_optionset_tables_appear_in_silver(self, tmp_path: Path):
+        """Optionset tables are renamed when written to Silver."""
+        bronze_db = tmp_path / "bronze.db"
+        silver_db = tmp_path / "silver.db"
+        conn = sqlite3.connect(str(bronze_db))
+
+        # Create optionset table with bronze name
+        conn.execute("""
+            CREATE TABLE _optionset_vin_developmentstatus (
+                code INTEGER,
+                label TEXT,
+                first_seen TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO _optionset_vin_developmentstatus VALUES
+                (909670000, 'Active', '2026-01-09')
+        """)
+        conn.commit()
+        conn.close()
+
+        bronze_to_silver(str(bronze_db), str(silver_db))
+
+        conn = sqlite3.connect(str(silver_db))
+        tables = [
+            r[0]
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        ]
+        conn.close()
+
+        # Should have renamed table, not original
+        assert "_optionset_developmentstatus" in tables
+        assert "_optionset_vin_developmentstatus" not in tables
+
+    def test_unrenamed_optionset_tables_kept_as_is(self, tmp_path: Path):
+        """Optionset tables not in OPTIONSET_RENAMES are copied with original name."""
+        bronze_db = tmp_path / "bronze.db"
+        silver_db = tmp_path / "silver.db"
+        conn = sqlite3.connect(str(bronze_db))
+
+        conn.execute("""
+            CREATE TABLE _optionset_unknown_field (
+                code INTEGER,
+                label TEXT,
+                first_seen TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO _optionset_unknown_field VALUES (1, 'Label', '2026-01-09')
+        """)
+        conn.commit()
+        conn.close()
+
+        bronze_to_silver(str(bronze_db), str(silver_db))
+
+        conn = sqlite3.connect(str(silver_db))
+        tables = [
+            r[0]
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        ]
+        conn.close()
+
+        assert "_optionset_unknown_field" in tables
