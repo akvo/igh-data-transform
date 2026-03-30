@@ -145,21 +145,14 @@ Common UV commands:
 # Unit tests only (default — e2e tests are excluded)
 uv run pytest -v
 
-# E2e tests only (requires a Bronze DB or Dataverse credentials)
-uv run pytest --e2e -v
+# E2e tests (requires E2E_BRONZE_DB_PATH pointing at a fully populated Bronze DB)
+E2E_BRONZE_DB_PATH=/path/to/bronze.db uv run pytest --e2e -v
 
 # All tests including e2e
-uv run pytest --all -v
-
-# E2e with a pre-existing Bronze DB
-E2E_BRONZE_DB_PATH=/path/to/bronze.db uv run pytest --e2e -v
+E2E_BRONZE_DB_PATH=/path/to/bronze.db uv run pytest --all -v
 ```
 
-**E2e test Bronze DB resolution order:**
-1. `E2E_BRONZE_DB_PATH` env var (if set)
-2. Cached `tests/data/bronze.db` (if exists with core tables)
-3. Auto-sync via `sync-dataverse` (requires `DATAVERSE_API_URL`, `DATAVERSE_CLIENT_ID`, `DATAVERSE_CLIENT_SECRET`, `DATAVERSE_SCOPE`)
-4. Skip with helpful message if none available
+E2e tests are skipped when `E2E_BRONZE_DB_PATH` is not set.
 
 ## Project Structure
 

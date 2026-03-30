@@ -1,6 +1,5 @@
 """Tests for silver_to_gold transformation."""
 
-import importlib
 import inspect
 import sys
 from pathlib import Path
