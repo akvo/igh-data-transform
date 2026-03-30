@@ -18,14 +18,14 @@ This package is part of a multi-stage data pipeline:
 2. **Silver Layer** (this package): Normalized, cleaned dimension and fact tables
 3. **Gold Layer** (this package): Pre-aggregated materialized views for analytics
 
-### Planned CLI Commands
+### CLI Commands
 
 ```bash
 # Transform Bronze to Silver (normalized tables)
 igh-transform bronze-to-silver --bronze-db <path> --silver-db <path>
 
-# Transform Silver to Gold (materialized views)
-igh-transform silver-to-gold --silver-db <path>
+# Transform Silver to Gold (star schema)
+igh-transform silver-to-gold --silver-db <path> --gold-db <path>
 ```
 
 ### Package Structure
@@ -37,14 +37,32 @@ src/igh_data_transform/
 ├── transformations/
 │   ├── __init__.py
 │   ├── bronze_to_silver.py   # Orchestrates Bronze → Silver pipeline
+│   ├── _candidates_config.py # Column-level config for candidates
 │   ├── candidates.py         # vin_candidates table transformer
-│   ├── cleanup.py            # Shared cleanup utilities (drop columns, rename, normalize, etc.)
-│   ├── clinical_trials.py    # vin_clinical_trials table transformer
+│   ├── cleanup.py            # Shared cleanup utilities
+│   ├── clinical_trials.py    # vin_clinicaltrials table transformer
+│   ├── developers.py         # vin_developers table transformer
 │   ├── diseases.py           # vin_diseases table transformer
-│   ├── priorities.py         # vin_priorities table transformer
-│   └── silver_to_gold.py     # Silver → Gold pipeline (stub)
+│   ├── priorities.py         # vin_rdpriorities table transformer
+│   └── silver_to_gold/       # Silver → Gold star schema ETL
+│       ├── __init__.py       # Public API: silver_to_gold()
+│       ├── config/
+│       │   ├── schema_map.py         # Declarative table/column mappings
+│       │   ├── phase_sort_order.py   # R&D phase ordering
+│       │   └── country_iso_codes.py  # ISO 3166 code lookups
+│       └── core/
+│           ├── main.py        # ETL orchestrator (run_etl)
+│           ├── extractor.py   # Read-only source DB access
+│           ├── transformer.py # Expression evaluation, FK resolution
+│           ├── loader.py      # Target DB schema + data loading
+│           ├── ddl_generator.py # CREATE TABLE from schema_map
+│           ├── expressions.py # COALESCE, CASE WHEN, LOOKUP parsers
+│           ├── bridges.py     # Bridge table transformations
+│           ├── dimensions.py  # Date generation, phase post-processing
+│           └── year_expansion.py # SCD2 year infill
 └── utils/
-    └── database.py           # SQLite connection utilities
+    ├── database.py           # SQLite connection utilities
+    └── country_aliases.py    # Country name variant mappings
 ```
 
 ### Test Structure
