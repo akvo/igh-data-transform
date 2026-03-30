@@ -77,11 +77,13 @@ tests/
 │   ├── test_cleanup.py
 │   ├── test_diseases.py
 │   ├── test_priorities.py
+│   ├── test_silver_to_gold.py
 │   └── ...
 ├── e2e/                      # End-to-end tests (real Bronze DB)
-│   ├── conftest.py           # Session-scoped Bronze/Silver DB fixtures
-│   └── test_bronze_to_silver_e2e.py
-└── data/                     # Cached Bronze DB (gitignored)
+│   ├── conftest.py           # Session-scoped Bronze/Silver/Gold DB fixtures
+│   ├── test_bronze_to_silver_e2e.py
+│   └── test_silver_to_gold_e2e.py
+└── data/                     # Test data (gitignored)
 ```
 
 ## Development Commands
@@ -153,6 +155,8 @@ E2E_BRONZE_DB_PATH=/path/to/bronze.db uv run pytest --all -v
 ```
 
 E2e tests are skipped when `E2E_BRONZE_DB_PATH` is not set.
+
+**E2e test fixture chain:** Bronze DB → `bronze_to_silver()` → Silver DB → `silver_to_gold()` → Gold DB. All three databases are built once per session from the Bronze DB path.
 
 ## Project Structure
 

@@ -62,10 +62,10 @@ This applies cleanup transformations:
 
 #### Silver to Gold Transformation
 
-Transform Silver layer to pre-aggregated Gold layer (not yet implemented):
+Transform Silver layer to a star schema Gold layer (dimensions, facts, bridges):
 
 ```bash
-uv run igh-transform silver-to-gold --silver-db ./data/silver.db
+uv run igh-transform silver-to-gold --silver-db ./data/silver.db --gold-db ./data/star_schema.db
 ```
 
 ### Pulling Data from Dataverse
@@ -104,9 +104,8 @@ The project uses UV for dependency management. Common commands:
 - **Update dependencies**: `uv sync`
 - **Run commands without activating venv**: `uv run <command>`
 - **Run unit tests**: `uv run pytest`
-- **Run e2e tests** (requires Bronze DB or Dataverse credentials): `uv run pytest --e2e -v`
-- **Run all tests**: `uv run pytest --all -v`
-- **Run e2e with custom Bronze DB**: `E2E_BRONZE_DB_PATH=/path/to/bronze.db uv run pytest --e2e -v`
+- **Run e2e tests**: `E2E_BRONZE_DB_PATH=/path/to/bronze.db uv run pytest --e2e -v`
+- **Run all tests**: `E2E_BRONZE_DB_PATH=/path/to/bronze.db uv run pytest --all -v`
 - **Run tests with coverage**: `uv run pytest --cov=igh_data_transform --cov-report=term-missing`
 - **Run linter**: `uv run ruff check src/ tests/`
 
