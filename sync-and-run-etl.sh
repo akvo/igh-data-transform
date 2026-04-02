@@ -3,9 +3,9 @@
 #   Sync -> Bronze -> Silver -> Star Schema -> Backend
 #
 # Usage:
-#   ./sync-and-run-etl.sh                          # sync + full pipeline
+#   ./sync-and-run-etl.sh                          # delete existing bronze DB + sync fresh
+#   ./sync-and-run-etl.sh --update                 # keep existing bronze DB, sync incrementally
 #   ./sync-and-run-etl.sh --skip-sync              # skip sync, use existing bronze DB
-#   ./sync-and-run-etl.sh --fresh                  # delete existing bronze DB and sync fresh
 #   ./sync-and-run-etl.sh --env-file /path/to/.env # custom .env for sync
 
 set -euo pipefail
@@ -18,7 +18,7 @@ GOLD_DB="$DATA_DIR/star_schema.db"
 BACKEND_DIR="$SCRIPT_DIR/../backend"
 
 SKIP_SYNC=false
-FRESH=false
+UPDATE=false
 ENV_FILE_ARG=""
 
 while [[ $# -gt 0 ]]; do
@@ -27,8 +27,8 @@ while [[ $# -gt 0 ]]; do
             SKIP_SYNC=true
             shift
             ;;
-        --fresh)
-            FRESH=true
+        --update)
+            UPDATE=true
             shift
             ;;
         --env-file)
@@ -37,7 +37,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 [--skip-sync] [--fresh] [--env-file /path/to/.env]"
+            echo "Usage: $0 [--skip-sync] [--update] [--env-file /path/to/.env]"
             exit 1
             ;;
     esac
@@ -45,8 +45,8 @@ done
 
 # Step 0: Sync Dataverse
 if [ "$SKIP_SYNC" = false ]; then
-    if [ "$FRESH" = true ] && [ -f "$BRONZE_DB" ]; then
-        echo "  --fresh: Removing existing bronze DB"
+    if [ "$UPDATE" = false ] && [ -f "$BRONZE_DB" ]; then
+        echo "  Removing existing bronze DB (pass --update to keep it)"
         rm "$BRONZE_DB"
     fi
     echo "=== Step 1/4: Sync Dataverse ==="

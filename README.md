@@ -68,6 +68,42 @@ Transform Silver layer to a star schema Gold layer (dimensions, facts, bridges):
 uv run igh-transform silver-to-gold --silver-db ./data/silver.db --gold-db ./data/star_schema.db
 ```
 
+### Running the ETL Pipeline
+
+Two wrapper scripts run the full pipeline and copy the resulting star schema database to the backend.
+
+#### `sync-and-run-etl.sh` - Sync + Transform
+
+Syncs data from Dataverse, then runs Bronze -> Silver -> Gold -> Backend:
+
+```bash
+# Fresh sync (default) - deletes existing bronze DB and syncs from scratch
+./sync-and-run-etl.sh
+
+# Incremental sync - keeps existing bronze DB
+./sync-and-run-etl.sh --update
+
+# Skip sync entirely - use an existing bronze DB
+./sync-and-run-etl.sh --skip-sync
+
+# Use a custom .env file for Dataverse credentials
+./sync-and-run-etl.sh --env-file /path/to/.env
+```
+
+#### `run-etl.sh` - Transform Only
+
+Runs the transformation pipeline on an existing bronze DB (no Dataverse sync):
+
+```bash
+# Use the default bronze DB path (data/dataverse_complete_raw.db)
+./run-etl.sh
+
+# Use a custom bronze DB path
+./run-etl.sh /path/to/bronze.db
+```
+
+Both scripts produce `star_schema.db` and copy it to `../backend/` and `../backend/tests/`.
+
 ### Pulling Data from Dataverse
 
 This project uses [igh-data-sync](https://github.com/akvo/igh-data-sync) to pull data from Microsoft Dataverse before applying transformations.
