@@ -536,7 +536,7 @@ wheels = [
 [[package]]
 name = "igh-data-sync"
 version = "0.1.0"
-source = { git = "ssh://git@github.com/akvo/igh-data-sync.git#89fc8c53b2ea598e09a169239f7faa4d486be73c" }
+source = { git = "ssh://git@github.com/akvo/igh-data-sync.git#5fd9b76a8d6ae79c69398e533416a545758bac23" }
 dependencies = [
     { name = "aiohttp" },
     { name = "python-dotenv" },
