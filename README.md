@@ -62,11 +62,47 @@ This applies cleanup transformations:
 
 #### Silver to Gold Transformation
 
-Transform Silver layer to pre-aggregated Gold layer (not yet implemented):
+Transform Silver layer to a star schema Gold layer (dimensions, facts, bridges):
 
 ```bash
-uv run igh-transform silver-to-gold --silver-db ./data/silver.db
+uv run igh-transform silver-to-gold --silver-db ./data/silver.db --gold-db ./data/star_schema.db
 ```
+
+### Running the ETL Pipeline
+
+Two wrapper scripts run the full pipeline and copy the resulting star schema database to the backend.
+
+#### `sync-and-run-etl.sh` - Sync + Transform
+
+Syncs data from Dataverse, then runs Bronze -> Silver -> Gold -> Backend:
+
+```bash
+# Fresh sync (default) - deletes existing bronze DB and syncs from scratch
+./sync-and-run-etl.sh
+
+# Incremental sync - keeps existing bronze DB
+./sync-and-run-etl.sh --update
+
+# Skip sync entirely - use an existing bronze DB
+./sync-and-run-etl.sh --skip-sync
+
+# Use a custom .env file for Dataverse credentials
+./sync-and-run-etl.sh --env-file /path/to/.env
+```
+
+#### `run-etl.sh` - Transform Only
+
+Runs the transformation pipeline on an existing bronze DB (no Dataverse sync):
+
+```bash
+# Use the default bronze DB path (data/dataverse_complete_raw.db)
+./run-etl.sh
+
+# Use a custom bronze DB path
+./run-etl.sh /path/to/bronze.db
+```
+
+Both scripts produce `star_schema.db` and copy it to `../backend/` and `../backend/tests/`.
 
 ### Pulling Data from Dataverse
 
@@ -104,9 +140,8 @@ The project uses UV for dependency management. Common commands:
 - **Update dependencies**: `uv sync`
 - **Run commands without activating venv**: `uv run <command>`
 - **Run unit tests**: `uv run pytest`
-- **Run e2e tests** (requires Bronze DB or Dataverse credentials): `uv run pytest --e2e -v`
-- **Run all tests**: `uv run pytest --all -v`
-- **Run e2e with custom Bronze DB**: `E2E_BRONZE_DB_PATH=/path/to/bronze.db uv run pytest --e2e -v`
+- **Run e2e tests**: `E2E_BRONZE_DB_PATH=/path/to/bronze.db uv run pytest --e2e -v`
+- **Run all tests**: `E2E_BRONZE_DB_PATH=/path/to/bronze.db uv run pytest --all -v`
 - **Run tests with coverage**: `uv run pytest --cov=igh_data_transform --cov-report=term-missing`
 - **Run linter**: `uv run ruff check src/ tests/`
 

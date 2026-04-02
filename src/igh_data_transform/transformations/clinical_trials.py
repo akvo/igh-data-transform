@@ -85,8 +85,13 @@ _CT_STATUS_CONSOLIDATION = {
 
 # Codes to remove from the option set (consolidated into Active)
 _CT_STATUS_CODES_TO_REMOVE = {
-    100000001, 100000002, 100000003, 100000004,
-    100000005, 100000006, 909670003,
+    100000001,
+    100000002,
+    100000003,
+    100000004,
+    100000005,
+    100000006,
+    909670003,
 }
 
 
@@ -99,8 +104,13 @@ def _synthesize_phase(val) -> str:
 
     # N/A (exact match)
     na_terms = {
-        "N/A", "NOT APPLICABLE", "PHASE N/A", "PHASE: N/A",
-        "NA", "0", "PHASE 0",
+        "N/A",
+        "NOT APPLICABLE",
+        "PHASE N/A",
+        "PHASE: N/A",
+        "NA",
+        "0",
+        "PHASE 0",
     }
     if v in na_terms:
         return "N/A"
@@ -156,16 +166,34 @@ def _synthesize_age_groups(val) -> str:
     v = str(val).upper().replace("\xa0", " ").replace("Â", " ").strip()
 
     # Older adults: 45 >
-    if any(x in v for x in [
-        "OLDER ADULT", "OLDER_ADULT", "(OLDER)",
-        "65", "64", "60", "55", "50", "49", "48",
-    ]):
+    if any(
+        x in v
+        for x in [
+            "OLDER ADULT",
+            "OLDER_ADULT",
+            "(OLDER)",
+            "65",
+            "64",
+            "60",
+            "55",
+            "50",
+            "49",
+            "48",
+        ]
+    ):
         return "Older adults: 45 >"
     if "YEARS AND OLDER" in v or "YEARS AND OVER" in v:
         return "Older adults: 45 >"
 
     # Young Adults 18 - 45
-    if "ADULT" in v or "18" in v or "20" in v or "25" in v or "18-45" in v or "18-40" in v:
+    if (
+        "ADULT" in v
+        or "18" in v
+        or "20" in v
+        or "25" in v
+        or "18-45" in v
+        or "18-40" in v
+    ):
         return "Young Adults 18 - 45"
 
     # Adolescents
@@ -206,7 +234,7 @@ def _synthesize_gender(val) -> str:
         return "Male"
     # For compound Both, check MALE: YES appears after FEMALE: YES
     if "FEMALE: YES" in v:
-        remaining = v[v.index("FEMALE: YES") + len("FEMALE: YES"):]
+        remaining = v[v.index("FEMALE: YES") + len("FEMALE: YES") :]
         if "MALE: YES" in remaining:
             return "Both"
 
@@ -227,14 +255,17 @@ def _clean_study_types(val):
     v_clean = str(val).strip().upper()
 
     interventional_variants = [
-        "INTERVENTIONAL", "INTERVENTIONAL STUDY",
-        "INTERVENTION", "INTERVENTIONAL CLINICAL TRIAL OF MEDICINAL PRODUCT",
+        "INTERVENTIONAL",
+        "INTERVENTIONAL STUDY",
+        "INTERVENTION",
+        "INTERVENTIONAL CLINICAL TRIAL OF MEDICINAL PRODUCT",
     ]
     if v_clean in interventional_variants:
         return "Interventional"
 
     observational_variants = [
-        "OBSERVATIONAL", "OBSERVATIONAL STUDY",
+        "OBSERVATIONAL",
+        "OBSERVATIONAL STUDY",
         "OBSERVATIONAL NON INVASIVE",
     ]
     if v_clean in observational_variants:

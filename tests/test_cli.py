@@ -89,9 +89,13 @@ class TestSilverToGoldCommand:
     def test_silver_to_gold_parses_args(self) -> None:
         """Test that silver-to-gold parses arguments correctly."""
         parser = create_parser()
-        args = parser.parse_args(["silver-to-gold", "--silver-db", "/path/silver.db"])
+        args = parser.parse_args([
+            "silver-to-gold", "--silver-db", "/path/silver.db",
+            "--gold-db", "/path/gold.db",
+        ])
         assert args.command == "silver-to-gold"
         assert args.silver_db == "/path/silver.db"
+        assert args.gold_db == "/path/gold.db"
 
     def test_silver_to_gold_missing_silver_db(self) -> None:
         """Test that silver-to-gold requires --silver-db."""
@@ -100,18 +104,44 @@ class TestSilverToGoldCommand:
             parser.parse_args(["silver-to-gold"])
         assert exc_info.value.code == 2
 
+    def test_silver_to_gold_missing_gold_db(self) -> None:
+        """Test that silver-to-gold requires --gold-db."""
+        parser = create_parser()
+        with pytest.raises(SystemExit) as exc_info:
+            parser.parse_args(["silver-to-gold", "--silver-db", "/path/silver.db"])
+        assert exc_info.value.code == 2
+
     def test_silver_to_gold_command_execution(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Test that silver-to-gold command executes successfully."""
+        """Test that silver-to-gold command calls silver_to_gold with both paths."""
+        import importlib
+
         silver_db = tmp_path / "silver.db"
+        gold_db = tmp_path / "gold.db"
+
+        called_with = {}
+
+        def mock_run_etl(source, output):
+            called_with["source"] = source
+            called_with["output"] = output
+            return True
+
+        stg_mod = importlib.import_module(
+            "igh_data_transform.transformations.silver_to_gold"
+        )
+        monkeypatch.setattr(stg_mod, "run_etl", mock_run_etl)
         monkeypatch.setattr(
             sys,
             "argv",
-            ["igh-transform", "silver-to-gold", "--silver-db", str(silver_db)],
+            ["igh-transform", "silver-to-gold",
+             "--silver-db", str(silver_db),
+             "--gold-db", str(gold_db)],
         )
         result = main()
         assert result == 0
+        assert called_with["source"] == Path(str(silver_db))
+        assert called_with["output"] == Path(str(gold_db))
 
 
 class TestMainFunction:

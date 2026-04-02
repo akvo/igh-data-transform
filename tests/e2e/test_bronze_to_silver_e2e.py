@@ -11,6 +11,8 @@ import sqlite3
 import pandas as pd
 import pytest
 
+from igh_data_transform.transformations.bronze_to_silver import OPTIONSET_RENAMES
+
 pytestmark = pytest.mark.e2e
 
 # ---------------------------------------------------------------------------
@@ -53,7 +55,11 @@ class TestSilverTransformationCompleteness:
             assert len(df) > 0, f"Table {table} is empty"
 
     def test_non_empty_bronze_tables_carried_over(self, bronze_db_path, silver_conn):
-        """All non-empty Bronze tables should appear in Silver."""
+        """All non-empty Bronze tables should appear in Silver.
+
+        Optionset tables may be renamed during transformation, so we check
+        for the Silver name when an explicit rename mapping exists.
+        """
         bronze_conn = sqlite3.connect(str(bronze_db_path))
         bronze_tables = _table_names(bronze_conn)
         silver_tables = _table_names(silver_conn)
@@ -61,7 +67,11 @@ class TestSilverTransformationCompleteness:
         for table in bronze_tables:
             df = pd.read_sql_query(f"SELECT COUNT(*) AS cnt FROM {table}", bronze_conn)  # noqa: S608
             if df["cnt"].iloc[0] > 0:
-                assert table in silver_tables, f"Non-empty Bronze table '{table}' missing from Silver"
+                expected_name = OPTIONSET_RENAMES.get(table, table)
+                assert expected_name in silver_tables, (
+                    f"Non-empty Bronze table '{table}' missing from Silver "
+                    f"(looked for '{expected_name}')"
+                )
 
         bronze_conn.close()
 
@@ -88,15 +98,17 @@ class TestCandidatesTransformation:
         assert "vin_name" not in self.df.columns
         assert "vin_candidateid" not in self.df.columns
 
-    def test_pipeline_filter_applied(self):
-        """Only includeinpipeline 100000000 or 100000002 should remain."""
-        assert "includeinpipeline" in self.df.columns
-        allowed = {100000000, 100000002}
-        actual = set(self.df["includeinpipeline"].dropna().astype(int).unique())
-        assert actual.issubset(allowed), f"Unexpected includeinpipeline values: {actual - allowed}"
+    def test_include_in_pipeline_derived(self):
+        """include_in_pipeline boolean should be derived from includeinpipeline codes."""
+        assert "include_in_pipeline" in self.df.columns, (
+            "include_in_pipeline column not found"
+        )
+        values = set(self.df["include_in_pipeline"].dropna().unique())
+        assert values.issubset({0, 1}), f"Unexpected include_in_pipeline values: {values}"
+        assert 1 in values, "No candidates marked as include_in_pipeline=1"
 
     def test_temporal_expansion_produces_rd_stage(self):
-        assert "RD_stage" in self.df.columns
+        assert "new_currentrdstage" in self.df.columns
 
     def test_temporal_expansion_has_valid_from(self):
         assert "valid_from" in self.df.columns
