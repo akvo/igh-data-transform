@@ -145,7 +145,9 @@ class Loader:
             ("fact_pipeline_snapshot", "candidate_key", "dim_candidate_core", "candidate_key"),
             ("fact_pipeline_snapshot", "product_key", "dim_product", "product_key"),
             ("fact_pipeline_snapshot", "disease_key", "dim_disease", "disease_key"),
-            ("fact_pipeline_snapshot", "secondary_disease_key", "dim_disease", "disease_key"),
+            # secondary_disease_key dropped: column removed from
+            # fact_pipeline_snapshot. Authoritative secondary disease
+            # now lives on dim_disease.secondary_disease_name.
             ("fact_pipeline_snapshot", "sub_product_key", "dim_product", "product_key"),
             ("fact_pipeline_snapshot", "phase_key", "dim_phase", "phase_key"),
             # fact_clinical_trial_event
@@ -254,6 +256,13 @@ class Loader:
             # Clinical trials
             ("idx_cte_candidate", "fact_clinical_trial_event(candidate_key)"),
             ("idx_cte_status", "fact_clinical_trial_event(status)"),
+            # Covering index for hierarchical disease filter. Every
+            # chart filter clause keyed on primary or both disease
+            # columns hits this without a table scan.
+            (
+                "idx_dim_disease_filter_secondary",
+                "dim_disease(disease_filter, secondary_disease_name)",
+            ),
         ]
         for name, definition in indexes:
             cursor.execute(f"CREATE INDEX IF NOT EXISTS {name} ON {definition}")

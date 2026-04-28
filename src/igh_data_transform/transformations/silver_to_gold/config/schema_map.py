@@ -76,6 +76,13 @@ STAR_SCHEMA_MAP = {
         "disease_group_name": "disease",
         "global_health_area": "OPTIONSET:globalhealtharea",
         "disease_type": "COALESCE(disease_simple, 'Unknown')",
+        # Authoritative primary/secondary disease columns. Both come
+        # from vin_diseases free-text fields, normalized in
+        # bronze-to-silver. Reachable through the existing
+        # f.disease_key -> d.disease_key join, so consumers don't need
+        # any new joins to filter by either.
+        "disease_filter": "disease_filter",
+        "secondary_disease_name": "secondary_disease_name",
     },
     "dim_phase": {
         "_source_table": "vin_rdstages",
@@ -206,7 +213,13 @@ STAR_SCHEMA_MAP = {
         "candidate_key": "FK:dim_candidate_core.candidateid|candidateid",
         "product_key": "FK:dim_product.vin_productid|mainproduct_value",
         "disease_key": "FK:dim_disease.diseaseid|diseasevalue",
-        "secondary_disease_key": "FK:dim_disease.diseaseid|secondarydisease_value",
+        # secondary_disease_key removed: the Dataverse `_vin_secondary
+        # disease_value` lookup it sourced from is set on only 59 of
+        # 9,388 candidates and self-references the primary in 57 of
+        # those 59 cases, so it carries effectively no signal. The
+        # authoritative secondary lives on dim_disease.secondary_
+        # disease_name and is reachable through the existing
+        # f.disease_key -> d.disease_key join.
         "sub_product_key": "FK:dim_product.vin_productid|subproduct_value",
         "technology_key": "FK:dim_candidate_tech.COMPOSITE",
         "regulatory_key": "FK:dim_candidate_regulatory.COMPOSITE",
