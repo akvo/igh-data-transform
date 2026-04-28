@@ -103,11 +103,11 @@ class TestTransformDiseases:
         assert "name" in result.columns
         assert "vin_name" not in result.columns
         assert "type" in result.columns
-        assert "secondary_diseae_choice_text" in result.columns
+        assert "secondary_disease_name" in result.columns
         assert "diseasecode" in result.columns
         assert "product_value" in result.columns
         assert "disease_simple" in result.columns
-        assert "diseasefilter" in result.columns
+        assert "disease_filter" in result.columns
         assert "diseasesort" in result.columns
         assert "secondary_disease_filter" in result.columns
         assert "diseasechoice_text" in result.columns
@@ -149,3 +149,63 @@ class TestTransformDiseases:
         df = self._make_input_df()
         result, _ = transform_diseases(df)
         assert len(result) == 2
+
+    def test_renames_diseasefilter_and_strips_whitespace(self):
+        df = self._make_input_df(overrides={
+            "new_diseasefilter": ["  Malaria  ", "Kinetoplastid diseases "],
+        })
+        result, _ = transform_diseases(df)
+        assert "disease_filter" in result.columns
+        # Legacy intermediate names are gone.
+        assert "new_diseasefilter" not in result.columns
+        assert "diseasefilter" not in result.columns
+        assert result["disease_filter"].iloc[0] == "Malaria"
+        assert result["disease_filter"].iloc[1] == "Kinetoplastid diseases"
+
+    def test_collapses_secondary_sentinel_to_null(self):
+        df = self._make_input_df(overrides={
+            "new_secondary_diseae_choice_text": [
+                "P. falciparum",
+                "No secondary disease",
+            ],
+        })
+        result, _ = transform_diseases(df)
+        assert "secondary_disease_name" in result.columns
+        # Legacy intermediate name is gone.
+        assert "secondary_diseae_choice_text" not in result.columns
+        assert result["secondary_disease_name"].iloc[0] == "P. falciparum"
+        assert pd.isna(result["secondary_disease_name"].iloc[1])
+
+    def test_collapses_secondary_empty_string_to_null(self):
+        df = self._make_input_df(overrides={
+            "new_secondary_diseae_choice_text": ["  ", ""],
+        })
+        result, _ = transform_diseases(df)
+        assert pd.isna(result["secondary_disease_name"].iloc[0])
+        assert pd.isna(result["secondary_disease_name"].iloc[1])
+
+    def test_normalizes_sti_primary_when_suffix_matches_secondary(self):
+        # Three Bronze rows store new_diseasefilter as a parent-child
+        # concatenation. Collapse only when the suffix exactly matches
+        # the secondary text -- preserves any future legitimate value
+        # that happens to contain " - ".
+        df = self._make_input_df(overrides={
+            "new_diseasefilter": [
+                "Sexually transmitted infections (STIs) - Gonorrhea",
+                "Foo - Bar",  # not normalized: suffix doesn't match secondary
+            ],
+            "new_secondary_diseae_choice_text": [
+                "Gonorrhea",
+                "Different",
+            ],
+        })
+        result, _ = transform_diseases(df)
+        assert (
+            result["disease_filter"].iloc[0]
+            == "Sexually transmitted infections (STIs)"
+        )
+        # Suffix didn't match -> primary unchanged.
+        assert result["disease_filter"].iloc[1] == "Foo - Bar"
+        # Secondary unchanged.
+        assert result["secondary_disease_name"].iloc[0] == "Gonorrhea"
+        assert result["secondary_disease_name"].iloc[1] == "Different"
