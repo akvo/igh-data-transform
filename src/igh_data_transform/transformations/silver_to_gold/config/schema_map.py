@@ -250,6 +250,7 @@ STAR_SCHEMA_MAP = {
         "description": "description",
         "ct_results_status": "OPTIONSET:ctresultsstatus|vin_ctresultsstatus",
         "end_date_key": "FK:dim_date.full_date|EXTRACT_DATE:enddate",
+        "last_updated_key": "FK:dim_date.full_date|EXTRACT_DATE:lastupdated",
         "collaborator": "collaborator",
         "funder_type": "fundertype",
         "interventions": "interventions",
