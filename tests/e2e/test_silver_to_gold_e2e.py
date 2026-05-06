@@ -218,7 +218,10 @@ class TestFactTables:
 
     def test_clinical_trial_has_fk_columns(self, gold_conn):
         cols = _column_names(gold_conn, "fact_clinical_trial_event")
-        expected_fks = {"candidate_key", "disease_key", "product_key", "start_date_key"}
+        expected_fks = {
+            "candidate_key", "disease_key", "product_key",
+            "start_date_key", "end_date_key", "last_updated_key",
+        }
         missing = expected_fks - cols
         assert not missing, f"Missing FK columns: {missing}"
 
@@ -348,6 +351,14 @@ class TestReferentialIntegrity:
         valid = set(dim["disease_key"].unique())
         orphans = refs - valid
         assert not orphans, f"{len(orphans)} orphan disease_key values in fact_clinical_trial_event"
+
+    def test_trial_last_updated_key_valid(self, gold_conn):
+        trial = _read_table(gold_conn, "fact_clinical_trial_event")
+        dim = _read_table(gold_conn, "dim_date")
+        refs = set(trial["last_updated_key"].dropna().unique())
+        valid = set(dim["date_key"].unique())
+        orphans = refs - valid
+        assert not orphans, f"{len(orphans)} orphan last_updated_key values in fact_clinical_trial_event"
 
     # -- Bridge FKs --
 
