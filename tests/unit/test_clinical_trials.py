@@ -416,7 +416,7 @@ class TestTransformClinicalTrials:
             "_owningbusinessunit_value", "new_resultsfirstposted",
             "versionnumber", "new_primarycompletiondate",
             "new_primaryoutcomemeasures", "timezoneruleversionnumber",
-            "vin_lastupdated", "new_secondaryoutcomemeasures",
+            "new_secondaryoutcomemeasures",
             "_owninguser_value", "json_response", "sync_time",
             "new_studydocuments", "vin_ctresultssource",
         ]
@@ -485,6 +485,16 @@ class TestTransformClinicalTrials:
         assert "vin_name" not in result.columns
         assert "studytype" in result.columns
         assert "ctstatus" in result.columns
+
+    def test_renames_lastupdated(self):
+        df = self._make_input_df({
+            "vin_lastupdated": ["2024-10-28T13:00:00Z", None],
+        })
+        result, _ = transform_clinical_trials(df)
+        assert "vin_lastupdated" not in result.columns
+        assert "lastupdated" in result.columns
+        assert result["lastupdated"].iloc[0] == "2024-10-28T13:00:00Z"
+        assert pd.isna(result["lastupdated"].iloc[1])
 
     def test_returns_tuple(self):
         df = self._make_input_df()
