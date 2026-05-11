@@ -159,6 +159,25 @@ class TestDimensionTables:
         missing = expected - cols
         assert not missing, f"Missing columns: {missing}"
 
+    def test_dim_candidate_core_test_format_is_label_not_code(
+        self, gold_conn
+    ):
+        """`test_format` holds the optionset label, not the raw integer
+        code. Numeric-only values would indicate the OPTIONSET resolver
+        was bypassed in `schema_map.STAR_SCHEMA_MAP`."""
+        df = _read_table(gold_conn, "dim_candidate_core")
+        non_null = df["test_format"].dropna()
+        if non_null.empty:
+            pytest.skip("No non-null test_format rows in current data")
+        # Every non-null value must contain at least one alphabetic
+        # character. Raw codes (e.g. "100000005") would fail this.
+        offenders = non_null[~non_null.astype(str).str.contains(r"[A-Za-z]")]
+        assert offenders.empty, (
+            f"Found {len(offenders)} test_format value(s) without "
+            f"letters — looks like unresolved codes: "
+            f"{offenders.unique().tolist()[:5]}"
+        )
+
     # -- dim_disease --
 
     def test_dim_disease_no_null_diseaseid(self, gold_conn):
