@@ -13,10 +13,15 @@ import logging
 import sys
 from pathlib import Path
 
-from igh_data_transform.transformations.silver_to_gold.config.schema_map import STAR_SCHEMA_MAP, TABLE_LOAD_ORDER
+from igh_data_transform.transformations.silver_to_gold.config.schema_map import (
+    STAR_SCHEMA_MAP,
+    TABLE_LOAD_ORDER,
+)
 from igh_data_transform.transformations.silver_to_gold.core.extractor import Extractor
 from igh_data_transform.transformations.silver_to_gold.core.loader import Loader
-from igh_data_transform.transformations.silver_to_gold.core.transformer import Transformer
+from igh_data_transform.transformations.silver_to_gold.core.transformer import (
+    Transformer,
+)
 
 # Map of dimension tables to their natural key columns
 # Note: dim_phase uses phase_name for lookups (to match extracted phase from "Phase I - Drugs")
@@ -51,7 +56,9 @@ def setup_logging(verbose: bool = False) -> None:
     )
 
 
-def _transform_table(transformer: Transformer, table_name: str, logger: logging.Logger) -> list[dict] | None:
+def _transform_table(
+    transformer: Transformer, table_name: str, logger: logging.Logger
+) -> list[dict] | None:
     """Transform a single table based on its type."""
     if table_name.startswith("dim_"):
         return transformer.transform_dimension(table_name)
@@ -82,14 +89,20 @@ def _cache_dimension_keys(
         # Find the natural key column (usually the ID column)
         lookup_col = DIMENSION_NATURAL_KEYS.get(table_name)
         if lookup_col:
-            transformer.cache_dimension_keys(table_name, loaded_data, pk_col, lookup_col)
+            transformer.cache_dimension_keys(
+                table_name, loaded_data, pk_col, lookup_col
+            )
 
     # Add secondary cache for geography by country_name (for optionset lookups)
     if table_name == "dim_geography":
-        transformer.cache_dimension_keys_by_name(table_name, loaded_data, pk_col, "country_name")
+        transformer.cache_dimension_keys_by_name(
+            table_name, loaded_data, pk_col, "country_name"
+        )
 
 
-def _process_tables(transformer: Transformer, loader: Loader, logger: logging.Logger) -> None:
+def _process_tables(
+    transformer: Transformer, loader: Loader, logger: logging.Logger
+) -> None:
     """Process all tables in dependency order."""
     for table_name in TABLE_LOAD_ORDER:
         logger.info(f"Processing {table_name}...")
@@ -115,7 +128,9 @@ def _process_tables(transformer: Transformer, loader: Loader, logger: logging.Lo
         if table_name in FACT_NATURAL_KEYS:
             pk_col = config.get("_pk")
             lookup_col = FACT_NATURAL_KEYS[table_name]
-            transformer.cache_dimension_keys(table_name, loaded_data, pk_col, lookup_col)
+            transformer.cache_dimension_keys(
+                table_name, loaded_data, pk_col, lookup_col
+            )
 
         # Build candidate cross-reference maps after pipeline snapshot is loaded
         if table_name == "fact_pipeline_snapshot":
@@ -164,7 +179,9 @@ def run_etl(source_path: Path, output_path: Path) -> bool:
 
 def main() -> int:
     """Main entry point."""
-    parser = argparse.ArgumentParser(description="Transform Dataverse raw schema to OLAP star schema")
+    parser = argparse.ArgumentParser(
+        description="Transform Dataverse raw schema to OLAP star schema"
+    )
     parser.add_argument(
         "--source",
         type=Path,

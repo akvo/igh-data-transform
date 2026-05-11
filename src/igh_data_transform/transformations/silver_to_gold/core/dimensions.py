@@ -25,11 +25,13 @@ def generate_date_dimension(special: dict) -> list[dict]:
     end = date(end_year + 1, 1, 1)
 
     while current < end:
-        rows.append({
-            "full_date": current.isoformat(),
-            "year": current.year,
-            "quarter": (current.month - 1) // 3 + 1,
-        })
+        rows.append(
+            {
+                "full_date": current.isoformat(),
+                "year": current.year,
+                "quarter": (current.month - 1) // 3 + 1,
+            }
+        )
         current += timedelta(days=1)
 
     logger.info(f"Generated {len(rows)} rows for dim_date ({start_year}-{end_year})")

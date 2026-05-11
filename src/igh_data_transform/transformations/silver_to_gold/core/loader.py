@@ -11,8 +11,12 @@ import logging
 import sqlite3
 from pathlib import Path
 
-from igh_data_transform.transformations.silver_to_gold.config.schema_map import STAR_SCHEMA_MAP
-from igh_data_transform.transformations.silver_to_gold.core.ddl_generator import generate_all_ddl
+from igh_data_transform.transformations.silver_to_gold.config.schema_map import (
+    STAR_SCHEMA_MAP,
+)
+from igh_data_transform.transformations.silver_to_gold.core.ddl_generator import (
+    generate_all_ddl,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +146,12 @@ class Loader:
 
         fk_checks = [
             # fact_pipeline_snapshot
-            ("fact_pipeline_snapshot", "candidate_key", "dim_candidate_core", "candidate_key"),
+            (
+                "fact_pipeline_snapshot",
+                "candidate_key",
+                "dim_candidate_core",
+                "candidate_key",
+            ),
             ("fact_pipeline_snapshot", "product_key", "dim_product", "product_key"),
             ("fact_pipeline_snapshot", "disease_key", "dim_disease", "disease_key"),
             # secondary_disease_key dropped: column removed from
@@ -151,36 +160,116 @@ class Loader:
             ("fact_pipeline_snapshot", "sub_product_key", "dim_product", "product_key"),
             ("fact_pipeline_snapshot", "phase_key", "dim_phase", "phase_key"),
             # fact_clinical_trial_event
-            ("fact_clinical_trial_event", "candidate_key", "dim_candidate_core", "candidate_key"),
+            (
+                "fact_clinical_trial_event",
+                "candidate_key",
+                "dim_candidate_core",
+                "candidate_key",
+            ),
             ("fact_clinical_trial_event", "disease_key", "dim_disease", "disease_key"),
             ("fact_clinical_trial_event", "product_key", "dim_product", "product_key"),
             # fact_publication
-            ("fact_publication", "candidate_key", "dim_candidate_core", "candidate_key"),
+            (
+                "fact_publication",
+                "candidate_key",
+                "dim_candidate_core",
+                "candidate_key",
+            ),
             # bridge_candidate_geography
-            ("bridge_candidate_geography", "candidate_key", "dim_candidate_core", "candidate_key"),
-            ("bridge_candidate_geography", "country_key", "dim_geography", "country_key"),
+            (
+                "bridge_candidate_geography",
+                "candidate_key",
+                "dim_candidate_core",
+                "candidate_key",
+            ),
+            (
+                "bridge_candidate_geography",
+                "country_key",
+                "dim_geography",
+                "country_key",
+            ),
             # bridge_candidate_developer
-            ("bridge_candidate_developer", "candidate_key", "dim_candidate_core", "candidate_key"),
-            ("bridge_candidate_developer", "developer_key", "dim_developer", "developer_key"),
+            (
+                "bridge_candidate_developer",
+                "candidate_key",
+                "dim_candidate_core",
+                "candidate_key",
+            ),
+            (
+                "bridge_candidate_developer",
+                "developer_key",
+                "dim_developer",
+                "developer_key",
+            ),
             # dim_priority
             ("dim_priority", "disease_key", "dim_disease", "disease_key"),
             # bridge_candidate_priority
-            ("bridge_candidate_priority", "candidate_key", "dim_candidate_core", "candidate_key"),
-            ("bridge_candidate_priority", "priority_key", "dim_priority", "priority_key"),
+            (
+                "bridge_candidate_priority",
+                "candidate_key",
+                "dim_candidate_core",
+                "candidate_key",
+            ),
+            (
+                "bridge_candidate_priority",
+                "priority_key",
+                "dim_priority",
+                "priority_key",
+            ),
             # bridge_candidate_age_group
-            ("bridge_candidate_age_group", "candidate_key", "dim_candidate_core", "candidate_key"),
-            ("bridge_candidate_age_group", "age_group_key", "dim_age_group", "age_group_key"),
+            (
+                "bridge_candidate_age_group",
+                "candidate_key",
+                "dim_candidate_core",
+                "candidate_key",
+            ),
+            (
+                "bridge_candidate_age_group",
+                "age_group_key",
+                "dim_age_group",
+                "age_group_key",
+            ),
             # bridge_candidate_approving_authority
-            ("bridge_candidate_approving_authority", "candidate_key", "dim_candidate_core", "candidate_key"),
-            ("bridge_candidate_approving_authority", "authority_key", "dim_approving_authority", "authority_key"),
+            (
+                "bridge_candidate_approving_authority",
+                "candidate_key",
+                "dim_candidate_core",
+                "candidate_key",
+            ),
+            (
+                "bridge_candidate_approving_authority",
+                "authority_key",
+                "dim_approving_authority",
+                "authority_key",
+            ),
             # bridge_candidate_organization
-            ("bridge_candidate_organization", "candidate_key", "dim_candidate_core", "candidate_key"),
-            ("bridge_candidate_organization", "organization_key", "dim_organization", "organization_key"),
+            (
+                "bridge_candidate_organization",
+                "candidate_key",
+                "dim_candidate_core",
+                "candidate_key",
+            ),
+            (
+                "bridge_candidate_organization",
+                "organization_key",
+                "dim_organization",
+                "organization_key",
+            ),
             # bridge_candidate_funder
-            ("bridge_candidate_funder", "candidate_key", "dim_candidate_core", "candidate_key"),
+            (
+                "bridge_candidate_funder",
+                "candidate_key",
+                "dim_candidate_core",
+                "candidate_key",
+            ),
             ("bridge_candidate_funder", "funder_key", "dim_funder", "funder_key"),
             # bridge_trial_geography
-            ("bridge_trial_geography", "trial_key", "fact_clinical_trial_event", "trial_id"),
+            (
+                "bridge_trial_geography",
+                "trial_key",
+                "fact_clinical_trial_event",
+                "trial_id",
+            ),
             ("bridge_trial_geography", "country_key", "dim_geography", "country_key"),
         ]
 
@@ -214,7 +303,9 @@ class Loader:
             if orphan_count > 0:
                 if fact_table not in issues:
                     issues[fact_table] = []
-                issues[fact_table].append(f"{orphan_count} orphan {fk_col} values (missing in {dim_table})")
+                issues[fact_table].append(
+                    f"{orphan_count} orphan {fk_col} values (missing in {dim_table})"
+                )
         except sqlite3.Error as e:
             logger.warning(f"Could not verify FK {fact_table}.{fk_col}: {e}")
 
@@ -240,19 +331,34 @@ class Loader:
         cursor = self._get_cursor()
         indexes = [
             # Composite index for correlated subqueries in portfolioCandidates
-            ("idx_fps_candidate_pipeline_date", "fact_pipeline_snapshot(candidate_key, include_in_pipeline, date_key)"),
+            (
+                "idx_fps_candidate_pipeline_date",
+                "fact_pipeline_snapshot(candidate_key, include_in_pipeline, date_key)",
+            ),
             # Covering index for is_active + include_in_pipeline filter
-            ("idx_fps_active_pipeline", "fact_pipeline_snapshot(is_active_flag, include_in_pipeline)"),
+            (
+                "idx_fps_active_pipeline",
+                "fact_pipeline_snapshot(is_active_flag, include_in_pipeline)",
+            ),
             # Bridge table FK lookups
             ("idx_bcg_candidate", "bridge_candidate_geography(candidate_key)"),
-            ("idx_bcg_scope", "bridge_candidate_geography(location_scope, candidate_key)"),
+            (
+                "idx_bcg_scope",
+                "bridge_candidate_geography(location_scope, candidate_key)",
+            ),
             ("idx_bcd_candidate", "bridge_candidate_developer(candidate_key)"),
             ("idx_bcp_candidate", "bridge_candidate_priority(candidate_key)"),
-            ("idx_bcaa_candidate", "bridge_candidate_approving_authority(candidate_key)"),
+            (
+                "idx_bcaa_candidate",
+                "bridge_candidate_approving_authority(candidate_key)",
+            ),
             ("idx_bcf_candidate", "bridge_candidate_funder(candidate_key)"),
             ("idx_bcag_candidate", "bridge_candidate_age_group(candidate_key)"),
             # Covering index for geographic query: join on candidate_key + filter on active/pipeline
-            ("idx_fps_candidate_active_pipeline", "fact_pipeline_snapshot(candidate_key, is_active_flag, include_in_pipeline)"),
+            (
+                "idx_fps_candidate_active_pipeline",
+                "fact_pipeline_snapshot(candidate_key, is_active_flag, include_in_pipeline)",
+            ),
             # Clinical trials
             ("idx_cte_candidate", "fact_clinical_trial_event(candidate_key)"),
             ("idx_cte_status", "fact_clinical_trial_event(status)"),
@@ -271,13 +377,22 @@ class Loader:
             # `LIKE '%foo%'`) and continue to scan — acceptable at
             # current row counts; revisit with FTS5 if rows grow into
             # the hundreds of thousands.
-            ("idx_candidate_core_current_rd_stage", "dim_candidate_core(current_rd_stage)"),
-            ("idx_candidate_core_indication_type", "dim_candidate_core(indication_type)"),
+            (
+                "idx_candidate_core_current_rd_stage",
+                "dim_candidate_core(current_rd_stage)",
+            ),
+            (
+                "idx_candidate_core_indication_type",
+                "dim_candidate_core(indication_type)",
+            ),
             ("idx_candidate_core_candidate_type", "dim_candidate_core(candidate_type)"),
             ("idx_disease_global_health_area", "dim_disease(global_health_area)"),
             ("idx_disease_disease_group_name", "dim_disease(disease_group_name)"),
             ("idx_cte_trial_phase", "fact_clinical_trial_event(trial_phase)"),
-            ("idx_regulatory_approval_status", "dim_candidate_regulatory(approval_status)"),
+            (
+                "idx_regulatory_approval_status",
+                "dim_candidate_regulatory(approval_status)",
+            ),
             # Trial date filters resolve through the dim_date join
             # (`dt.full_date` for start / end / last_updated), so the
             # index goes on dim_date — not on a non-existent
@@ -294,7 +409,9 @@ class Loader:
         cursor = self._get_cursor()
 
         # Get all tables
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+        )
         tables = [row[0] for row in cursor.fetchall()]
 
         print("\n" + "=" * 50)

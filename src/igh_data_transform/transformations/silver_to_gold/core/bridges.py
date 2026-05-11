@@ -14,10 +14,14 @@ import re
 from typing import TYPE_CHECKING
 
 from igh_data_transform.utils.country_aliases import COUNTRY_ALIASES
-from igh_data_transform.transformations.silver_to_gold.config.schema_map import STAR_SCHEMA_MAP
+from igh_data_transform.transformations.silver_to_gold.config.schema_map import (
+    STAR_SCHEMA_MAP,
+)
 
 if TYPE_CHECKING:
-    from igh_data_transform.transformations.silver_to_gold.core.transformer import Transformer
+    from igh_data_transform.transformations.silver_to_gold.core.transformer import (
+        Transformer,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -108,9 +112,13 @@ def parse_trial_locations(text: str, country_name_cache: dict[str, int]) -> list
         Deduplicated list of canonical country names found in ``country_name_cache``.
     """
     # Build case-insensitive reverse lookup
-    lower_to_canonical: dict[str, str] = {name.lower(): name for name in country_name_cache}
+    lower_to_canonical: dict[str, str] = {
+        name.lower(): name for name in country_name_cache
+    }
     # Also index aliases (case-insensitive)
-    alias_lower: dict[str, str | None] = {k.lower(): v for k, v in COUNTRY_ALIASES.items()}
+    alias_lower: dict[str, str | None] = {
+        k.lower(): v for k, v in COUNTRY_ALIASES.items()
+    }
 
     matched: list[str] = []
     seen: set[str] = set()
@@ -120,17 +128,23 @@ def parse_trial_locations(text: str, country_name_cache: dict[str, int]) -> list
         if not stripped:
             continue
 
-        resolved = _lookup_country_name(stripped.lower(), lower_to_canonical, alias_lower)
+        resolved = _lookup_country_name(
+            stripped.lower(), lower_to_canonical, alias_lower
+        )
         if resolved is None and "," in stripped:
             # Address-like: "City, State, Country" — try last part
             last_part = stripped.rsplit(",", 1)[-1].strip()
-            resolved = _lookup_country_name(last_part.lower(), lower_to_canonical, alias_lower)
+            resolved = _lookup_country_name(
+                last_part.lower(), lower_to_canonical, alias_lower
+            )
         if resolved is None:
             # Try text inside parentheses: "Hospital Name (Country)"
             paren_match = re.search(r"\(([^)]+)\)", stripped)
             if paren_match:
                 inner = paren_match.group(1).strip()
-                resolved = _lookup_country_name(inner.lower(), lower_to_canonical, alias_lower)
+                resolved = _lookup_country_name(
+                    inner.lower(), lower_to_canonical, alias_lower
+                )
 
         if resolved and resolved not in seen:
             seen.add(resolved)
@@ -153,18 +167,24 @@ def _lookup_country_name(
     return lower_to_canonical.get(text_lower)
 
 
-def collect_trial_geography_rows(transformer: Transformer, source_def: dict) -> list[dict]:
+def collect_trial_geography_rows(
+    transformer: Transformer, source_def: dict
+) -> list[dict]:
     """Collect bridge rows mapping trials to countries from free-text locations."""
     source_table = source_def["table"]
     trial_col = source_def["trial_col"]
     country_col = source_def["country_col"]
-    country_name_cache = transformer._dim_caches.get("dim_geography_by_country_name", {})
+    country_name_cache = transformer._dim_caches.get(
+        "dim_geography_by_country_name", {}
+    )
 
     rows: list[dict] = []
     for row in transformer.extractor.extract_table(source_table):
         trial_id = row.get(trial_col)
         locations_text = row.get(country_col)
-        trial_key = transformer.lookup_dimension_key("fact_clinical_trial_event", trial_id)
+        trial_key = transformer.lookup_dimension_key(
+            "fact_clinical_trial_event", trial_id
+        )
         if trial_key is None or not locations_text:
             continue
         for country_name in parse_trial_locations(locations_text, country_name_cache):
@@ -188,7 +208,9 @@ def collect_structured_trial_geography_rows(
         trial_id = row.get(trial_col)
         country_ref = row.get(country_col)
 
-        trial_key = transformer.lookup_dimension_key("fact_clinical_trial_event", trial_id)
+        trial_key = transformer.lookup_dimension_key(
+            "fact_clinical_trial_event", trial_id
+        )
         country_key = transformer.lookup_dimension_key("dim_geography", country_ref)
 
         if trial_key is not None and country_key is not None:
@@ -196,7 +218,9 @@ def collect_structured_trial_geography_rows(
     return rows
 
 
-def _collect_candidate_geography_rows(transformer: Transformer, source_def: dict) -> list[dict]:
+def _collect_candidate_geography_rows(
+    transformer: Transformer, source_def: dict
+) -> list[dict]:
     """Collect candidate-level geography rows from a single union source."""
     candidate_col = source_def["candidate_col"]
     country_col = source_def["country_col"]
@@ -207,20 +231,34 @@ def _collect_candidate_geography_rows(transformer: Transformer, source_def: dict
         candidate_id = row.get(candidate_col)
         country_ref = row.get(country_col)
 
-        candidate_key = transformer.lookup_dimension_key("dim_candidate_core", candidate_id)
+        candidate_key = transformer.lookup_dimension_key(
+            "dim_candidate_core", candidate_id
+        )
 
         if source_def.get("optionset_lookup"):
-            country_name = transformer.extractor.lookup_optionset(source_def["optionset_lookup"], country_ref)
+            country_name = transformer.extractor.lookup_optionset(
+                source_def["optionset_lookup"], country_ref
+            )
             if country_name is None:
                 continue
-            country_key = transformer._dim_caches.get("dim_geography_by_country_name", {}).get(country_name)
+            country_key = transformer._dim_caches.get(
+                "dim_geography_by_country_name", {}
+            ).get(country_name)
         elif source_def.get("country_name_lookup"):
-            country_key = transformer._dim_caches.get("dim_geography_by_country_name", {}).get(country_ref)
+            country_key = transformer._dim_caches.get(
+                "dim_geography_by_country_name", {}
+            ).get(country_ref)
         else:
             country_key = transformer.lookup_dimension_key("dim_geography", country_ref)
 
         if candidate_key is not None and country_key is not None:
-            rows.append({"candidate_key": candidate_key, "country_key": country_key, "location_scope": location_scope})
+            rows.append(
+                {
+                    "candidate_key": candidate_key,
+                    "country_key": country_key,
+                    "location_scope": location_scope,
+                }
+            )
     return rows
 
 
@@ -236,7 +274,9 @@ def _deduplicate(rows: list[dict], key_cols: tuple[str, ...]) -> list[dict]:
     return deduped
 
 
-def transform_union_bridge(transformer: Transformer, table_name: str, _config: dict, special: dict) -> list[dict]:
+def transform_union_bridge(
+    transformer: Transformer, table_name: str, _config: dict, special: dict
+) -> list[dict]:
     """
     Transform bridge table from multiple source tables (UNION).
 
@@ -262,16 +302,24 @@ def transform_union_bridge(transformer: Transformer, table_name: str, _config: d
             )
             transformed.extend(collector(transformer, source_def))
         else:
-            transformed.extend(_collect_candidate_geography_rows(transformer, source_def))
+            transformed.extend(
+                _collect_candidate_geography_rows(transformer, source_def)
+            )
 
-    key_cols = ("trial_key", "country_key") if is_trial_bridge else ("candidate_key", "country_key", "location_scope")
+    key_cols = (
+        ("trial_key", "country_key")
+        if is_trial_bridge
+        else ("candidate_key", "country_key", "location_scope")
+    )
     transformed = _deduplicate(transformed, key_cols)
 
     logger.info(f"Transformed {len(transformed)} rows for {table_name}")
     return transformed
 
 
-def transform_delimited_bridge(transformer: Transformer, table_name: str, config: dict, special: dict) -> list[dict]:
+def transform_delimited_bridge(
+    transformer: Transformer, table_name: str, config: dict, special: dict
+) -> list[dict]:
     """
     Transform bridge table from delimited field.
 
@@ -292,18 +340,26 @@ def transform_delimited_bridge(transformer: Transformer, table_name: str, config
     dim_table = special["dimension_table"]
 
     # Derive the FK column name from config (the non-candidate, non-meta column)
-    fk_col = next(col for col, expr in config.items() if not col.startswith("_") and col != "candidate_key")
+    fk_col = next(
+        col
+        for col, expr in config.items()
+        if not col.startswith("_") and col != "candidate_key"
+    )
 
     transformed = []
 
     # Derive candidate source column from config FK expression
     candidate_fk_expr = config.get("candidate_key", "")
-    candidate_source_col = candidate_fk_expr.split("|")[-1] if "|" in candidate_fk_expr else "candidateid"
+    candidate_source_col = (
+        candidate_fk_expr.split("|")[-1] if "|" in candidate_fk_expr else "candidateid"
+    )
 
     for row in transformer.extractor.extract_table(source_table):
         # Get the candidate key first
         candidate_id = row.get(candidate_source_col)
-        candidate_key = transformer.lookup_dimension_key("dim_candidate_core", candidate_id)
+        candidate_key = transformer.lookup_dimension_key(
+            "dim_candidate_core", candidate_id
+        )
 
         if candidate_key is None:
             continue
@@ -323,10 +379,12 @@ def transform_delimited_bridge(transformer: Transformer, table_name: str, config
             dim_key = transformer.lookup_dimension_key(dim_table, part)
 
             if dim_key is not None:
-                transformed.append({
-                    "candidate_key": candidate_key,
-                    fk_col: dim_key,
-                })
+                transformed.append(
+                    {
+                        "candidate_key": candidate_key,
+                        fk_col: dim_key,
+                    }
+                )
 
     logger.info(f"Transformed {len(transformed)} rows for {table_name}")
     return transformed

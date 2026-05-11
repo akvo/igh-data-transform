@@ -162,9 +162,7 @@ class TestParseCaseWhen:
 
 class TestEvaluateLookup:
     def test_phase_sort_order_known(self):
-        result = evaluate_lookup(
-            "LOOKUP:PHASE_SORT_ORDER", {"vin_name": "Phase I"}
-        )
+        result = evaluate_lookup("LOOKUP:PHASE_SORT_ORDER", {"vin_name": "Phase I"})
         assert result == 30
 
     def test_phase_sort_order_unknown(self):
@@ -174,9 +172,7 @@ class TestEvaluateLookup:
         assert result == DEFAULT_SORT_ORDER
 
     def test_country_iso_code(self):
-        result = evaluate_lookup(
-            "LOOKUP:COUNTRY_ISO_CODE", {"vin_name": "France"}
-        )
+        result = evaluate_lookup("LOOKUP:COUNTRY_ISO_CODE", {"vin_name": "France"})
         assert result == "FRA"
 
     def test_country_iso_code_empty(self):

@@ -40,7 +40,6 @@ class TestCLIParser:
         assert exc_info.value.code == 0
 
 
-
 class TestBronzeToSilverCommand:
     """Tests for bronze-to-silver command."""
 
@@ -48,7 +47,13 @@ class TestBronzeToSilverCommand:
         """Test that bronze-to-silver parses arguments correctly."""
         parser = create_parser()
         args = parser.parse_args(
-            ["bronze-to-silver", "--bronze-db", "/path/bronze.db", "--silver-db", "/path/silver.db"]
+            [
+                "bronze-to-silver",
+                "--bronze-db",
+                "/path/bronze.db",
+                "--silver-db",
+                "/path/silver.db",
+            ]
         )
         assert args.command == "bronze-to-silver"
         assert args.bronze_db == "/path/bronze.db"
@@ -77,7 +82,14 @@ class TestBronzeToSilverCommand:
         monkeypatch.setattr(
             sys,
             "argv",
-            ["igh-transform", "bronze-to-silver", "--bronze-db", str(bronze_db), "--silver-db", str(silver_db)],
+            [
+                "igh-transform",
+                "bronze-to-silver",
+                "--bronze-db",
+                str(bronze_db),
+                "--silver-db",
+                str(silver_db),
+            ],
         )
         result = main()
         assert result == 0
@@ -89,10 +101,15 @@ class TestSilverToGoldCommand:
     def test_silver_to_gold_parses_args(self) -> None:
         """Test that silver-to-gold parses arguments correctly."""
         parser = create_parser()
-        args = parser.parse_args([
-            "silver-to-gold", "--silver-db", "/path/silver.db",
-            "--gold-db", "/path/gold.db",
-        ])
+        args = parser.parse_args(
+            [
+                "silver-to-gold",
+                "--silver-db",
+                "/path/silver.db",
+                "--gold-db",
+                "/path/gold.db",
+            ]
+        )
         assert args.command == "silver-to-gold"
         assert args.silver_db == "/path/silver.db"
         assert args.gold_db == "/path/gold.db"
@@ -134,9 +151,14 @@ class TestSilverToGoldCommand:
         monkeypatch.setattr(
             sys,
             "argv",
-            ["igh-transform", "silver-to-gold",
-             "--silver-db", str(silver_db),
-             "--gold-db", str(gold_db)],
+            [
+                "igh-transform",
+                "silver-to-gold",
+                "--silver-db",
+                str(silver_db),
+                "--gold-db",
+                str(gold_db),
+            ],
         )
         result = main()
         assert result == 0

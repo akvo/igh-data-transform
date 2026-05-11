@@ -62,10 +62,12 @@ def inject_synthetic_phases(
         if phase_name not in existing_names:
             if referenced_phases is not None and phase_name not in referenced_phases:
                 continue
-            transformed.append({
-                "vin_rdstageid": None,
-                "phase_name": phase_name,
-                "sort_order": sort_order,
-            })
+            transformed.append(
+                {
+                    "vin_rdstageid": None,
+                    "phase_name": phase_name,
+                    "sort_order": sort_order,
+                }
+            )
             logger.info(f"Injected synthetic phase: {phase_name}")
     return transformed

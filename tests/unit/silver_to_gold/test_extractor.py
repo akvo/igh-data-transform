@@ -12,13 +12,25 @@ def source_db(tmp_path):
     """Create a temporary SQLite DB with test data."""
     db_path = tmp_path / "source.db"
     conn = sqlite3.connect(str(db_path))
-    conn.execute("CREATE TABLE vin_candidates (candidateid TEXT, new_currentrdstage TEXT)")
-    conn.execute("INSERT INTO vin_candidates VALUES ('c1', 'Phase I'), ('c2', 'Phase II'), ('c2', 'Phase II')")
+    conn.execute(
+        "CREATE TABLE vin_candidates (candidateid TEXT, new_currentrdstage TEXT)"
+    )
+    conn.execute(
+        "INSERT INTO vin_candidates VALUES ('c1', 'Phase I'), ('c2', 'Phase II'), ('c2', 'Phase II')"
+    )
     conn.execute("CREATE TABLE _optionset_teststatus (code INTEGER, label TEXT)")
-    conn.execute("INSERT INTO _optionset_teststatus VALUES (1, 'Active'), (2, 'Inactive')")
-    conn.execute("CREATE TABLE _sync_log (end_time TEXT, status TEXT, records_added INTEGER, records_updated INTEGER)")
-    conn.execute("INSERT INTO _sync_log VALUES ('2025-03-01T10:00:00', 'completed', 50, 50)")
-    conn.execute("INSERT INTO _sync_log VALUES ('2025-03-02T10:00:00', 'completed', 0, 0)")
+    conn.execute(
+        "INSERT INTO _optionset_teststatus VALUES (1, 'Active'), (2, 'Inactive')"
+    )
+    conn.execute(
+        "CREATE TABLE _sync_log (end_time TEXT, status TEXT, records_added INTEGER, records_updated INTEGER)"
+    )
+    conn.execute(
+        "INSERT INTO _sync_log VALUES ('2025-03-01T10:00:00', 'completed', 50, 50)"
+    )
+    conn.execute(
+        "INSERT INTO _sync_log VALUES ('2025-03-02T10:00:00', 'completed', 0, 0)"
+    )
     conn.commit()
     conn.close()
     return db_path
@@ -97,7 +109,11 @@ class TestCountRows:
 class TestExecuteQuery:
     def test_arbitrary_select(self, source_db):
         with Extractor(source_db) as ext:
-            rows = list(ext.execute_query("SELECT candidateid FROM vin_candidates WHERE candidateid = 'c1'"))
+            rows = list(
+                ext.execute_query(
+                    "SELECT candidateid FROM vin_candidates WHERE candidateid = 'c1'"
+                )
+            )
             assert len(rows) == 1
             assert rows[0]["candidateid"] == "c1"
 
@@ -113,7 +129,9 @@ class TestGetLastSyncDate:
         """All sync entries have 0 changes — should return None."""
         db_path = tmp_path / "empty_sync.db"
         conn = sqlite3.connect(str(db_path))
-        conn.execute("CREATE TABLE _sync_log (end_time TEXT, status TEXT, records_added INTEGER, records_updated INTEGER)")
+        conn.execute(
+            "CREATE TABLE _sync_log (end_time TEXT, status TEXT, records_added INTEGER, records_updated INTEGER)"
+        )
         conn.execute("INSERT INTO _sync_log VALUES ('2025-01-01', 'completed', 0, 0)")
         conn.commit()
         conn.close()

@@ -132,7 +132,9 @@ class Extractor:
         cursor.execute(f"PRAGMA table_info([{table_name}])")
         return [row[1] for row in cursor.fetchall()]
 
-    def extract_table(self, table_name: str, columns: list[str] | None = None) -> Iterator[dict]:
+    def extract_table(
+        self, table_name: str, columns: list[str] | None = None
+    ) -> Iterator[dict]:
         """
         Extract all rows from a table.
 

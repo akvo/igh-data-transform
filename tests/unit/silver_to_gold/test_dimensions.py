@@ -68,40 +68,50 @@ class TestCollectReferencedPhaseNames:
         return extractor
 
     def test_basic(self):
-        ext = self._mock_extractor([
-            {"new_currentrdstage": "Phase I"},
-            {"new_currentrdstage": "Phase II"},
-        ])
+        ext = self._mock_extractor(
+            [
+                {"new_currentrdstage": "Phase I"},
+                {"new_currentrdstage": "Phase II"},
+            ]
+        )
         result = collect_referenced_phase_names(ext)
         assert result == {"Phase I", "Phase II"}
 
     def test_strips_product_suffix(self):
-        ext = self._mock_extractor([
-            {"new_currentrdstage": "Phase III - Drugs"},
-        ])
+        ext = self._mock_extractor(
+            [
+                {"new_currentrdstage": "Phase III - Drugs"},
+            ]
+        )
         result = collect_referenced_phase_names(ext)
         assert result == {"Phase III"}
 
     def test_applies_aliases(self):
-        ext = self._mock_extractor([
-            {"new_currentrdstage": "Approved product"},
-        ])
+        ext = self._mock_extractor(
+            [
+                {"new_currentrdstage": "Approved product"},
+            ]
+        )
         result = collect_referenced_phase_names(ext)
         assert result == {"Approved"}
 
     def test_skips_empty(self):
-        ext = self._mock_extractor([
-            {"new_currentrdstage": None},
-            {"new_currentrdstage": ""},
-        ])
+        ext = self._mock_extractor(
+            [
+                {"new_currentrdstage": None},
+                {"new_currentrdstage": ""},
+            ]
+        )
         result = collect_referenced_phase_names(ext)
         assert result == set()
 
     def test_deduplicates(self):
-        ext = self._mock_extractor([
-            {"new_currentrdstage": "Phase I"},
-            {"new_currentrdstage": "Phase I"},
-        ])
+        ext = self._mock_extractor(
+            [
+                {"new_currentrdstage": "Phase I"},
+                {"new_currentrdstage": "Phase I"},
+            ]
+        )
         result = collect_referenced_phase_names(ext)
         assert result == {"Phase I"}
 
@@ -153,9 +163,11 @@ class TestInjectSyntheticPhases:
 class TestPostprocessDimPhase:
     def test_deduplicates_by_name(self):
         extractor = MagicMock()
-        extractor.extract_table.return_value = iter([
-            {"new_currentrdstage": "Phase I"},
-        ])
+        extractor.extract_table.return_value = iter(
+            [
+                {"new_currentrdstage": "Phase I"},
+            ]
+        )
         transformed = [
             {"phase_name": "Phase I", "sort_order": 30},
             {"phase_name": "Phase I", "sort_order": 30},  # duplicate
@@ -166,9 +178,11 @@ class TestPostprocessDimPhase:
 
     def test_filters_unreferenced(self):
         extractor = MagicMock()
-        extractor.extract_table.return_value = iter([
-            {"new_currentrdstage": "Phase I"},
-        ])
+        extractor.extract_table.return_value = iter(
+            [
+                {"new_currentrdstage": "Phase I"},
+            ]
+        )
         transformed = [
             {"phase_name": "Phase I", "sort_order": 30},
             {"phase_name": "Phase II", "sort_order": 40},

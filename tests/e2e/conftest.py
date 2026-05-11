@@ -8,16 +8,19 @@ import pytest
 from igh_data_transform.transformations.bronze_to_silver import bronze_to_silver
 from igh_data_transform.transformations.silver_to_gold import silver_to_gold
 
-CORE_TABLES = ["vin_candidates", "vin_clinicaltrials", "vin_diseases", "vin_rdpriorities"]
+CORE_TABLES = [
+    "vin_candidates",
+    "vin_clinicaltrials",
+    "vin_diseases",
+    "vin_rdpriorities",
+]
 
 
 def _has_core_tables(db_path: Path) -> bool:
     """Check if the Bronze DB contains the 4 core tables."""
     try:
         conn = sqlite3.connect(str(db_path))
-        cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        )
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = {row[0] for row in cursor.fetchall()}
         conn.close()
         return all(t in tables for t in CORE_TABLES)

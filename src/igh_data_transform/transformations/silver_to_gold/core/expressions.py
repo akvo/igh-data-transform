@@ -11,8 +11,13 @@ import logging
 import re
 from typing import Any
 
-from igh_data_transform.transformations.silver_to_gold.config.country_iso_codes import lookup_iso_code
-from igh_data_transform.transformations.silver_to_gold.config.phase_sort_order import DEFAULT_SORT_ORDER, PHASE_SORT_ORDER
+from igh_data_transform.transformations.silver_to_gold.config.country_iso_codes import (
+    lookup_iso_code,
+)
+from igh_data_transform.transformations.silver_to_gold.config.phase_sort_order import (
+    DEFAULT_SORT_ORDER,
+    PHASE_SORT_ORDER,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +63,11 @@ def _eval_single_branch_case_when(expr: str, row: dict) -> tuple[bool, Any]:
     Returns (matched, value) where matched=True if the pattern was recognized.
     """
     # Pattern 1: Integer results - CASE WHEN col = val THEN 1 ELSE 0 END
-    match = re.match(r"CASE\s+WHEN\s+(\w+)\s*=\s*(\d+)\s+THEN\s+(\d+)\s+ELSE\s+(\d+)\s+END", expr, re.IGNORECASE)
+    match = re.match(
+        r"CASE\s+WHEN\s+(\w+)\s*=\s*(\d+)\s+THEN\s+(\d+)\s+ELSE\s+(\d+)\s+END",
+        expr,
+        re.IGNORECASE,
+    )
     if match:
         col_name, check_val, then_val, else_val = match.groups()
         actual_val = row.get(col_name)
@@ -77,7 +86,9 @@ def _eval_single_branch_case_when(expr: str, row: dict) -> tuple[bool, Any]:
 
     # Pattern 3: String results - CASE WHEN col = val THEN 'str' ELSE 'str' END
     match = re.match(
-        r"CASE\s+WHEN\s+(\w+)\s*=\s*(\d+)\s+THEN\s+'([^']+)'\s+ELSE\s+'([^']+)'\s+END", expr, re.IGNORECASE
+        r"CASE\s+WHEN\s+(\w+)\s*=\s*(\d+)\s+THEN\s+'([^']+)'\s+ELSE\s+'([^']+)'\s+END",
+        expr,
+        re.IGNORECASE,
     )
     if match:
         col_name, check_val, then_val, else_val = match.groups()

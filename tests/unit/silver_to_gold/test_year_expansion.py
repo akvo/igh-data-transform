@@ -71,7 +71,9 @@ class TestCollectReportingYears:
 class TestInfillForRow:
     def test_no_infill_needed(self):
         row = {"candidate_key": 1, "date_key": 2023, "is_active_flag": 0}
-        result = _infill_for_row(row, "2023-01-01", "2024-01-01", [2023, 2024, 2025], 2025, _key_fn)
+        result = _infill_for_row(
+            row, "2023-01-01", "2024-01-01", [2023, 2024, 2025], 2025, _key_fn
+        )
         assert len(result) == 1
         assert result[0] is row
 
@@ -145,7 +147,9 @@ class TestExpandPipelineYears:
         ]
         ranges = [("2020-01-01", "2025-01-01")]
         result = expand_pipeline_years(
-            transformed, ranges, _key_fn,
+            transformed,
+            ranges,
+            _key_fn,
             reporting_years={2020, 2022, 2024},
         )
         # Infills for 2022, 2024 (between 2020 and 2025)

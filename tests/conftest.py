@@ -7,8 +7,12 @@ import pytest
 
 
 def pytest_addoption(parser):
-    parser.addoption("--e2e", action="store_true", default=False, help="Run only e2e tests")
-    parser.addoption("--all", action="store_true", default=False, help="Run all tests including e2e")
+    parser.addoption(
+        "--e2e", action="store_true", default=False, help="Run only e2e tests"
+    )
+    parser.addoption(
+        "--all", action="store_true", default=False, help="Run all tests including e2e"
+    )
 
 
 def pytest_collection_modifyitems(config, items):

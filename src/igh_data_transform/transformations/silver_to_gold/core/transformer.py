@@ -6,13 +6,26 @@ from datetime import datetime, timezone
 from functools import partial
 from typing import Any
 
-from igh_data_transform.transformations.silver_to_gold.config.phase_sort_order import PHASE_ALIASES
-from igh_data_transform.transformations.silver_to_gold.config.schema_map import STAR_SCHEMA_MAP
+from igh_data_transform.transformations.silver_to_gold.config.phase_sort_order import (
+    PHASE_ALIASES,
+)
+from igh_data_transform.transformations.silver_to_gold.config.schema_map import (
+    STAR_SCHEMA_MAP,
+)
 from igh_data_transform.transformations.silver_to_gold.core import bridges
-from igh_data_transform.transformations.silver_to_gold.core.dimensions import generate_date_dimension, postprocess_dim_phase
-from igh_data_transform.transformations.silver_to_gold.core.expressions import evaluate_lookup, parse_case_when, parse_coalesce
+from igh_data_transform.transformations.silver_to_gold.core.dimensions import (
+    generate_date_dimension,
+    postprocess_dim_phase,
+)
+from igh_data_transform.transformations.silver_to_gold.core.expressions import (
+    evaluate_lookup,
+    parse_case_when,
+    parse_coalesce,
+)
 from igh_data_transform.transformations.silver_to_gold.core.extractor import Extractor
-from igh_data_transform.transformations.silver_to_gold.core.year_expansion import expand_pipeline_years
+from igh_data_transform.transformations.silver_to_gold.core.year_expansion import (
+    expand_pipeline_years,
+)
 
 # Length of ISO date string (YYYY-MM-DD)
 ISO_DATE_LENGTH = 10
@@ -54,7 +67,11 @@ class Transformer:
     def _evaluate_expression(self, expr: str, row: dict) -> Any:
         """Evaluate a source expression against a row."""
         # Handle None and specially-handled expressions
-        if expr is None or expr.startswith(("FK:", "FK_VIA_CANDIDATE:", "LITERAL:")) or expr == "GENERATED":
+        if (
+            expr is None
+            or expr.startswith(("FK:", "FK_VIA_CANDIDATE:", "LITERAL:"))
+            or expr == "GENERATED"
+        ):
             return None
 
         # Handle special expression types with dispatch
@@ -70,7 +87,9 @@ class Transformer:
         # Simple column reference
         return row.get(expr)
 
-    def cache_dimension_keys(self, table_name: str, data: list[dict], pk_col: str, lookup_col: str) -> None:
+    def cache_dimension_keys(
+        self, table_name: str, data: list[dict], pk_col: str, lookup_col: str
+    ) -> None:
         """Cache surrogate keys for a dimension table."""
         self._dim_caches[table_name] = {}
         for row in data:
@@ -79,9 +98,13 @@ class Transformer:
             if pk_val is not None and lookup_val is not None:
                 self._dim_caches[table_name][lookup_val] = pk_val
 
-        logger.debug(f"Cached {len(self._dim_caches[table_name])} keys for {table_name}")
+        logger.debug(
+            f"Cached {len(self._dim_caches[table_name])} keys for {table_name}"
+        )
 
-    def cache_composite_keys(self, table_name: str, data: list[dict], pk_col: str, key_cols: list[str]) -> None:
+    def cache_composite_keys(
+        self, table_name: str, data: list[dict], pk_col: str, key_cols: list[str]
+    ) -> None:
         """Cache surrogate keys for dimension with composite natural key."""
         self._composite_caches[table_name] = {}
         for row in data:
@@ -90,9 +113,13 @@ class Transformer:
             if pk_val is not None:
                 self._composite_caches[table_name][key_tuple] = pk_val
 
-        logger.debug(f"Cached {len(self._composite_caches[table_name])} composite keys for {table_name}")
+        logger.debug(
+            f"Cached {len(self._composite_caches[table_name])} composite keys for {table_name}"
+        )
 
-    def cache_dimension_keys_by_name(self, table_name: str, data: list[dict], pk_col: str, name_col: str) -> None:
+    def cache_dimension_keys_by_name(
+        self, table_name: str, data: list[dict], pk_col: str, name_col: str
+    ) -> None:
         """Cache surrogate keys by name column for optionset-based lookups."""
         cache_key = f"{table_name}_by_{name_col}"
         self._dim_caches[cache_key] = {}
@@ -155,7 +182,9 @@ class Transformer:
         logger.info(f"Transformed {len(transformed)} rows for {table_name}")
         return transformed
 
-    def _transform_distinct_dimension(self, table_name: str, config: dict) -> list[dict]:
+    def _transform_distinct_dimension(
+        self, table_name: str, config: dict
+    ) -> list[dict]:
         """
         Transform dimension with DISTINCT handling.
         Creates unique combinations of columns and assigns surrogate keys.
@@ -205,7 +234,9 @@ class Transformer:
         logger.info(f"Transformed {len(transformed)} distinct rows for {table_name}")
         return transformed
 
-    def _transform_delimited_dimension(self, table_name: str, config: dict, special: dict) -> list[dict]:
+    def _transform_delimited_dimension(
+        self, table_name: str, config: dict, special: dict
+    ) -> list[dict]:
         """Transform dimension by extracting distinct values from a delimited field."""
         source_table = config["_source_table"]
         source_column = special["source_column"]
@@ -237,10 +268,14 @@ class Transformer:
 
             transformed.append(new_row)
 
-        logger.info(f"Transformed {len(transformed)} distinct values from delimited field for {table_name}")
+        logger.info(
+            f"Transformed {len(transformed)} distinct values from delimited field for {table_name}"
+        )
         return transformed
 
-    def _transform_optionset_dimension(self, table_name: str, config: dict, special: dict) -> list[dict]:
+    def _transform_optionset_dimension(
+        self, table_name: str, config: dict, special: dict
+    ) -> list[dict]:
         """Transform dimension by reading directly from optionset cache."""
         optionset_name = special["optionset_name"]
         optionset_data = self.extractor._optionset_cache.get(optionset_name, {})
@@ -261,7 +296,9 @@ class Transformer:
                     new_row[target_col] = code
             transformed.append(new_row)
 
-        logger.info(f"Transformed {len(transformed)} rows from optionset for {table_name}")
+        logger.info(
+            f"Transformed {len(transformed)} rows from optionset for {table_name}"
+        )
         return transformed
 
     def transform_fact(self, table_name: str) -> list[dict]:
@@ -287,7 +324,9 @@ class Transformer:
 
                 if source_expr.startswith("FK_VIA_CANDIDATE:"):
                     # Resolve via candidate cross-reference
-                    new_row[target_col] = self._resolve_fk_via_candidate(source_expr, new_row)
+                    new_row[target_col] = self._resolve_fk_via_candidate(
+                        source_expr, new_row
+                    )
                 elif source_expr.startswith("FK:"):
                     # Parse FK expression
                     new_row[target_col] = self._resolve_fk(source_expr, row, today)
@@ -300,7 +339,9 @@ class Transformer:
 
         if expand_years:
             lookup = partial(self.lookup_dimension_key, "dim_date")
-            transformed = expand_pipeline_years(transformed, source_valid_ranges, lookup)
+            transformed = expand_pipeline_years(
+                transformed, source_valid_ranges, lookup
+            )
 
         logger.info(f"Transformed {len(transformed)} rows for {table_name}")
         return transformed
@@ -335,7 +376,13 @@ class Transformer:
             source_col = source_ref[len("EXTRACT_DATE:") :]
             timestamp = row.get(source_col, "")
             lookup_val = (
-                (timestamp[:ISO_DATE_LENGTH] if len(timestamp) >= ISO_DATE_LENGTH else None) if timestamp else None
+                (
+                    timestamp[:ISO_DATE_LENGTH]
+                    if len(timestamp) >= ISO_DATE_LENGTH
+                    else None
+                )
+                if timestamp
+                else None
             )
         elif lookup_col == "COMPOSITE":
             # Resolve composite FK by evaluating the dimension's own expressions

@@ -102,8 +102,12 @@ def expand_pipeline_years(
     result: list[dict] = []
     for i, original_row in enumerate(transformed):
         vf, vt = source_valid_ranges[i]
-        infill = _infill_for_row(original_row, vf, vt, sorted_years, max_reporting_year, lookup_date_key)
+        infill = _infill_for_row(
+            original_row, vf, vt, sorted_years, max_reporting_year, lookup_date_key
+        )
         result.extend(infill)
 
-    logger.info(f"Year expansion: {len(transformed)} → {len(result)} rows (+{len(result) - len(transformed)} infill)")
+    logger.info(
+        f"Year expansion: {len(transformed)} → {len(result)} rows (+{len(result) - len(transformed)} infill)"
+    )
     return result

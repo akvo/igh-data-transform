@@ -30,9 +30,12 @@ class TestLoaderContextManager:
             loader.create_schema()
         # old_table should not exist since loader recreates DB
         conn = sqlite3.connect(str(loader_path))
-        tables = {r[0] for r in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='old_table'"
-        ).fetchall()}
+        tables = {
+            r[0]
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='old_table'"
+            ).fetchall()
+        }
         conn.close()
         assert "old_table" not in tables
 
@@ -43,9 +46,12 @@ class TestCreateSchema:
             loader.create_schema()
 
         conn = sqlite3.connect(str(loader_path))
-        tables = {r[0] for r in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-        ).fetchall()}
+        tables = {
+            r[0]
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            ).fetchall()
+        }
         conn.close()
         assert "dim_candidate_core" in tables
         assert "fact_pipeline_snapshot" in tables
@@ -77,10 +83,13 @@ class TestGetRowCount:
     def test_count_after_load(self, loader_path):
         with Loader(loader_path) as loader:
             loader.create_schema()
-            loader.load_table("dim_disease", [
-                {"diseaseid": "d1", "disease_name": "Malaria"},
-                {"diseaseid": "d2", "disease_name": "TB"},
-            ])
+            loader.load_table(
+                "dim_disease",
+                [
+                    {"diseaseid": "d1", "disease_name": "Malaria"},
+                    {"diseaseid": "d2", "disease_name": "TB"},
+                ],
+            )
             assert loader.get_row_count("dim_disease") == 2
 
 
@@ -91,7 +100,9 @@ class TestWriteMetadata:
             loader.write_metadata({"last_sync_date": "2025-03-01", "version": "1.0"})
 
         conn = sqlite3.connect(str(loader_path))
-        rows = conn.execute("SELECT key, value FROM _etl_metadata ORDER BY key").fetchall()
+        rows = conn.execute(
+            "SELECT key, value FROM _etl_metadata ORDER BY key"
+        ).fetchall()
         conn.close()
         metadata = dict(rows)
         assert metadata["last_sync_date"] == "2025-03-01"

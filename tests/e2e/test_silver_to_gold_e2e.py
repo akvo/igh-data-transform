@@ -168,7 +168,13 @@ class TestDimensionTables:
 
     def test_dim_disease_has_expected_columns(self, gold_conn):
         cols = _column_names(gold_conn, "dim_disease")
-        expected = {"disease_key", "diseaseid", "disease_name", "disease_group_name", "global_health_area"}
+        expected = {
+            "disease_key",
+            "diseaseid",
+            "disease_name",
+            "disease_group_name",
+            "global_health_area",
+        }
         missing = expected - cols
         assert not missing, f"Missing columns: {missing}"
 
@@ -183,7 +189,9 @@ class TestDimensionTables:
     def test_dim_candidate_tech_has_technology_type(self, gold_conn):
         df = _read_table(gold_conn, "dim_candidate_tech")
         assert "technology_type" in df.columns
-        assert df["technology_type"].notna().all(), "technology_type has NULLs (should COALESCE to 'Unknown')"
+        assert df["technology_type"].notna().all(), (
+            "technology_type has NULLs (should COALESCE to 'Unknown')"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -202,7 +210,13 @@ class TestFactTables:
 
     def test_pipeline_snapshot_has_fk_columns(self, gold_conn):
         cols = _column_names(gold_conn, "fact_pipeline_snapshot")
-        expected_fks = {"candidate_key", "product_key", "disease_key", "phase_key", "date_key"}
+        expected_fks = {
+            "candidate_key",
+            "product_key",
+            "disease_key",
+            "phase_key",
+            "date_key",
+        }
         missing = expected_fks - cols
         assert not missing, f"Missing FK columns: {missing}"
 
@@ -219,8 +233,12 @@ class TestFactTables:
     def test_clinical_trial_has_fk_columns(self, gold_conn):
         cols = _column_names(gold_conn, "fact_clinical_trial_event")
         expected_fks = {
-            "candidate_key", "disease_key", "product_key",
-            "start_date_key", "end_date_key", "last_updated_key",
+            "candidate_key",
+            "disease_key",
+            "product_key",
+            "start_date_key",
+            "end_date_key",
+            "last_updated_key",
         }
         missing = expected_fks - cols
         assert not missing, f"Missing FK columns: {missing}"
@@ -251,7 +269,9 @@ class TestBridgeTables:
         count = _row_count(gold_conn, table)
         if table in self._SPARSE_BRIDGES:
             # Source data may be too sparse for FK resolution to produce rows
-            pytest.skip(f"{table} may be empty due to sparse source data") if count == 0 else None
+            pytest.skip(
+                f"{table} may be empty due to sparse source data"
+            ) if count == 0 else None
         else:
             assert count > 0, f"{table} is empty"
 
@@ -284,7 +304,9 @@ class TestReferentialIntegrity:
         refs = set(snap["candidate_key"].dropna().unique())
         valid = set(dim["candidate_key"].unique())
         orphans = refs - valid
-        assert not orphans, f"{len(orphans)} orphan candidate_key values in fact_pipeline_snapshot"
+        assert not orphans, (
+            f"{len(orphans)} orphan candidate_key values in fact_pipeline_snapshot"
+        )
 
     def test_snapshot_disease_key_valid(self, gold_conn):
         snap = _read_table(gold_conn, "fact_pipeline_snapshot")
@@ -292,7 +314,9 @@ class TestReferentialIntegrity:
         refs = set(snap["disease_key"].dropna().unique())
         valid = set(dim["disease_key"].unique())
         orphans = refs - valid
-        assert not orphans, f"{len(orphans)} orphan disease_key values in fact_pipeline_snapshot"
+        assert not orphans, (
+            f"{len(orphans)} orphan disease_key values in fact_pipeline_snapshot"
+        )
 
     def test_snapshot_phase_key_valid(self, gold_conn):
         snap = _read_table(gold_conn, "fact_pipeline_snapshot")
@@ -300,7 +324,9 @@ class TestReferentialIntegrity:
         refs = set(snap["phase_key"].dropna().unique())
         valid = set(dim["phase_key"].unique())
         orphans = refs - valid
-        assert not orphans, f"{len(orphans)} orphan phase_key values in fact_pipeline_snapshot"
+        assert not orphans, (
+            f"{len(orphans)} orphan phase_key values in fact_pipeline_snapshot"
+        )
 
     def test_snapshot_date_key_valid(self, gold_conn):
         snap = _read_table(gold_conn, "fact_pipeline_snapshot")
@@ -308,7 +334,9 @@ class TestReferentialIntegrity:
         refs = set(snap["date_key"].dropna().unique())
         valid = set(dim["date_key"].unique())
         orphans = refs - valid
-        assert not orphans, f"{len(orphans)} orphan date_key values in fact_pipeline_snapshot"
+        assert not orphans, (
+            f"{len(orphans)} orphan date_key values in fact_pipeline_snapshot"
+        )
 
     def test_snapshot_product_key_valid(self, gold_conn):
         snap = _read_table(gold_conn, "fact_pipeline_snapshot")
@@ -316,7 +344,9 @@ class TestReferentialIntegrity:
         refs = set(snap["product_key"].dropna().unique())
         valid = set(dim["product_key"].unique())
         orphans = refs - valid
-        assert not orphans, f"{len(orphans)} orphan product_key values in fact_pipeline_snapshot"
+        assert not orphans, (
+            f"{len(orphans)} orphan product_key values in fact_pipeline_snapshot"
+        )
 
     def test_snapshot_technology_key_valid(self, gold_conn):
         snap = _read_table(gold_conn, "fact_pipeline_snapshot")
@@ -324,7 +354,9 @@ class TestReferentialIntegrity:
         refs = set(snap["technology_key"].dropna().unique())
         valid = set(dim["technology_key"].unique())
         orphans = refs - valid
-        assert not orphans, f"{len(orphans)} orphan technology_key values in fact_pipeline_snapshot"
+        assert not orphans, (
+            f"{len(orphans)} orphan technology_key values in fact_pipeline_snapshot"
+        )
 
     def test_snapshot_regulatory_key_valid(self, gold_conn):
         snap = _read_table(gold_conn, "fact_pipeline_snapshot")
@@ -332,7 +364,9 @@ class TestReferentialIntegrity:
         refs = set(snap["regulatory_key"].dropna().unique())
         valid = set(dim["regulatory_key"].unique())
         orphans = refs - valid
-        assert not orphans, f"{len(orphans)} orphan regulatory_key values in fact_pipeline_snapshot"
+        assert not orphans, (
+            f"{len(orphans)} orphan regulatory_key values in fact_pipeline_snapshot"
+        )
 
     # -- fact_clinical_trial_event FKs --
 
@@ -342,7 +376,9 @@ class TestReferentialIntegrity:
         refs = set(trial["candidate_key"].dropna().unique())
         valid = set(dim["candidate_key"].unique())
         orphans = refs - valid
-        assert not orphans, f"{len(orphans)} orphan candidate_key values in fact_clinical_trial_event"
+        assert not orphans, (
+            f"{len(orphans)} orphan candidate_key values in fact_clinical_trial_event"
+        )
 
     def test_trial_disease_key_valid(self, gold_conn):
         trial = _read_table(gold_conn, "fact_clinical_trial_event")
@@ -350,7 +386,9 @@ class TestReferentialIntegrity:
         refs = set(trial["disease_key"].dropna().unique())
         valid = set(dim["disease_key"].unique())
         orphans = refs - valid
-        assert not orphans, f"{len(orphans)} orphan disease_key values in fact_clinical_trial_event"
+        assert not orphans, (
+            f"{len(orphans)} orphan disease_key values in fact_clinical_trial_event"
+        )
 
     def test_trial_last_updated_key_valid(self, gold_conn):
         trial = _read_table(gold_conn, "fact_clinical_trial_event")
@@ -358,7 +396,9 @@ class TestReferentialIntegrity:
         refs = set(trial["last_updated_key"].dropna().unique())
         valid = set(dim["date_key"].unique())
         orphans = refs - valid
-        assert not orphans, f"{len(orphans)} orphan last_updated_key values in fact_clinical_trial_event"
+        assert not orphans, (
+            f"{len(orphans)} orphan last_updated_key values in fact_clinical_trial_event"
+        )
 
     # -- Bridge FKs --
 
@@ -367,40 +407,72 @@ class TestReferentialIntegrity:
         cand = _read_table(gold_conn, "dim_candidate_core")
         dev = _read_table(gold_conn, "dim_developer")
 
-        orphan_cand = set(bridge["candidate_key"].dropna().unique()) - set(cand["candidate_key"].unique())
-        orphan_dev = set(bridge["developer_key"].dropna().unique()) - set(dev["developer_key"].unique())
-        assert not orphan_cand, f"{len(orphan_cand)} orphan candidate_key in bridge_candidate_developer"
-        assert not orphan_dev, f"{len(orphan_dev)} orphan developer_key in bridge_candidate_developer"
+        orphan_cand = set(bridge["candidate_key"].dropna().unique()) - set(
+            cand["candidate_key"].unique()
+        )
+        orphan_dev = set(bridge["developer_key"].dropna().unique()) - set(
+            dev["developer_key"].unique()
+        )
+        assert not orphan_cand, (
+            f"{len(orphan_cand)} orphan candidate_key in bridge_candidate_developer"
+        )
+        assert not orphan_dev, (
+            f"{len(orphan_dev)} orphan developer_key in bridge_candidate_developer"
+        )
 
     def test_bridge_candidate_priority_fks_valid(self, gold_conn):
         bridge = _read_table(gold_conn, "bridge_candidate_priority")
         cand = _read_table(gold_conn, "dim_candidate_core")
         pri = _read_table(gold_conn, "dim_priority")
 
-        orphan_cand = set(bridge["candidate_key"].dropna().unique()) - set(cand["candidate_key"].unique())
-        orphan_pri = set(bridge["priority_key"].dropna().unique()) - set(pri["priority_key"].unique())
-        assert not orphan_cand, f"{len(orphan_cand)} orphan candidate_key in bridge_candidate_priority"
-        assert not orphan_pri, f"{len(orphan_pri)} orphan priority_key in bridge_candidate_priority"
+        orphan_cand = set(bridge["candidate_key"].dropna().unique()) - set(
+            cand["candidate_key"].unique()
+        )
+        orphan_pri = set(bridge["priority_key"].dropna().unique()) - set(
+            pri["priority_key"].unique()
+        )
+        assert not orphan_cand, (
+            f"{len(orphan_cand)} orphan candidate_key in bridge_candidate_priority"
+        )
+        assert not orphan_pri, (
+            f"{len(orphan_pri)} orphan priority_key in bridge_candidate_priority"
+        )
 
     def test_bridge_candidate_geography_fks_valid(self, gold_conn):
         bridge = _read_table(gold_conn, "bridge_candidate_geography")
         cand = _read_table(gold_conn, "dim_candidate_core")
         geo = _read_table(gold_conn, "dim_geography")
 
-        orphan_cand = set(bridge["candidate_key"].dropna().unique()) - set(cand["candidate_key"].unique())
-        orphan_geo = set(bridge["country_key"].dropna().unique()) - set(geo["country_key"].unique())
-        assert not orphan_cand, f"{len(orphan_cand)} orphan candidate_key in bridge_candidate_geography"
-        assert not orphan_geo, f"{len(orphan_geo)} orphan country_key in bridge_candidate_geography"
+        orphan_cand = set(bridge["candidate_key"].dropna().unique()) - set(
+            cand["candidate_key"].unique()
+        )
+        orphan_geo = set(bridge["country_key"].dropna().unique()) - set(
+            geo["country_key"].unique()
+        )
+        assert not orphan_cand, (
+            f"{len(orphan_cand)} orphan candidate_key in bridge_candidate_geography"
+        )
+        assert not orphan_geo, (
+            f"{len(orphan_geo)} orphan country_key in bridge_candidate_geography"
+        )
 
     def test_bridge_trial_geography_fks_valid(self, gold_conn):
         bridge = _read_table(gold_conn, "bridge_trial_geography")
         trial = _read_table(gold_conn, "fact_clinical_trial_event")
         geo = _read_table(gold_conn, "dim_geography")
 
-        orphan_trial = set(bridge["trial_key"].dropna().unique()) - set(trial["trial_id"].unique())
-        orphan_geo = set(bridge["country_key"].dropna().unique()) - set(geo["country_key"].unique())
-        assert not orphan_trial, f"{len(orphan_trial)} orphan trial_key in bridge_trial_geography"
-        assert not orphan_geo, f"{len(orphan_geo)} orphan country_key in bridge_trial_geography"
+        orphan_trial = set(bridge["trial_key"].dropna().unique()) - set(
+            trial["trial_id"].unique()
+        )
+        orphan_geo = set(bridge["country_key"].dropna().unique()) - set(
+            geo["country_key"].unique()
+        )
+        assert not orphan_trial, (
+            f"{len(orphan_trial)} orphan trial_key in bridge_trial_geography"
+        )
+        assert not orphan_geo, (
+            f"{len(orphan_geo)} orphan country_key in bridge_trial_geography"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -411,25 +483,28 @@ class TestReferentialIntegrity:
 class TestPrimaryKeyUniqueness:
     """Verify surrogate keys are unique within each table."""
 
-    @pytest.mark.parametrize("table,pk", [
-        ("dim_candidate_core", "candidate_key"),
-        ("dim_disease", "disease_key"),
-        ("dim_phase", "phase_key"),
-        ("dim_product", "product_key"),
-        ("dim_geography", "country_key"),
-        ("dim_organization", "organization_key"),
-        ("dim_priority", "priority_key"),
-        ("dim_date", "date_key"),
-        ("dim_age_group", "age_group_key"),
-        ("dim_approving_authority", "authority_key"),
-        ("dim_candidate_tech", "technology_key"),
-        ("dim_candidate_regulatory", "regulatory_key"),
-        ("dim_developer", "developer_key"),
-        ("dim_funder", "funder_key"),
-        ("fact_pipeline_snapshot", "snapshot_id"),
-        ("fact_clinical_trial_event", "trial_id"),
-        ("fact_publication", "publication_id"),
-    ])
+    @pytest.mark.parametrize(
+        "table,pk",
+        [
+            ("dim_candidate_core", "candidate_key"),
+            ("dim_disease", "disease_key"),
+            ("dim_phase", "phase_key"),
+            ("dim_product", "product_key"),
+            ("dim_geography", "country_key"),
+            ("dim_organization", "organization_key"),
+            ("dim_priority", "priority_key"),
+            ("dim_date", "date_key"),
+            ("dim_age_group", "age_group_key"),
+            ("dim_approving_authority", "authority_key"),
+            ("dim_candidate_tech", "technology_key"),
+            ("dim_candidate_regulatory", "regulatory_key"),
+            ("dim_developer", "developer_key"),
+            ("dim_funder", "funder_key"),
+            ("fact_pipeline_snapshot", "snapshot_id"),
+            ("fact_clinical_trial_event", "trial_id"),
+            ("fact_publication", "publication_id"),
+        ],
+    )
     def test_primary_key_unique(self, gold_conn, table, pk):
         df = _read_table(gold_conn, table)
         duplicates = df[pk].duplicated().sum()
