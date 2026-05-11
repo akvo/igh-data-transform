@@ -676,3 +676,59 @@ class TestOptionsetRenaming:
         conn.close()
 
         assert "_optionset_unknown_field" in tables
+
+    def test_testformat_optionset_is_renamed(self):
+        """`_optionset_new_testformat` is renamed to `_optionset_testformat`."""
+        assert "_optionset_new_testformat" in OPTIONSET_RENAMES
+        assert (
+            OPTIONSET_RENAMES["_optionset_new_testformat"]
+            == "_optionset_testformat"
+        )
+
+    def test_testformat_optionset_table_renamed_in_silver(
+        self, tmp_path: Path
+    ):
+        """Bronze `_optionset_new_testformat` lands as silver
+        `_optionset_testformat`, preserving rows."""
+        bronze_db = tmp_path / "bronze.db"
+        silver_db = tmp_path / "silver.db"
+        conn = sqlite3.connect(str(bronze_db))
+        conn.execute("""
+            CREATE TABLE _optionset_new_testformat (
+                code INTEGER,
+                label TEXT,
+                first_seen TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO _optionset_new_testformat VALUES
+                (100000000, 'Cartridge-based processing', '2026-01-09'),
+                (100000005, 'Rapid diagnostic test (strip or cassette)',
+                 '2026-01-09')
+        """)
+        conn.commit()
+        conn.close()
+
+        bronze_to_silver(str(bronze_db), str(silver_db))
+
+        conn = sqlite3.connect(str(silver_db))
+        tables = {
+            r[0]
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        assert "_optionset_testformat" in tables
+        assert "_optionset_new_testformat" not in tables
+
+        labels = {
+            r[0]
+            for r in conn.execute(
+                "SELECT label FROM _optionset_testformat"
+            ).fetchall()
+        }
+        conn.close()
+        assert labels == {
+            "Cartridge-based processing",
+            "Rapid diagnostic test (strip or cassette)",
+        }
