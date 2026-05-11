@@ -263,6 +263,26 @@ class Loader:
                 "idx_dim_disease_filter_secondary",
                 "dim_disease(disease_filter, secondary_disease_name)",
             ),
+            # DataTable sort + CATEGORY-filter accelerators. The new
+            # dashboard `DataTable` issues server-side ORDER BY and
+            # IN-list filter clauses on these columns; the chart-only
+            # set above didn't cover them. Free-text LIKE filters
+            # can't use B-tree indexes (SQLite cannot accelerate
+            # `LIKE '%foo%'`) and continue to scan — acceptable at
+            # current row counts; revisit with FTS5 if rows grow into
+            # the hundreds of thousands.
+            ("idx_candidate_core_current_rd_stage", "dim_candidate_core(current_rd_stage)"),
+            ("idx_candidate_core_indication_type", "dim_candidate_core(indication_type)"),
+            ("idx_candidate_core_candidate_type", "dim_candidate_core(candidate_type)"),
+            ("idx_disease_global_health_area", "dim_disease(global_health_area)"),
+            ("idx_disease_disease_group_name", "dim_disease(disease_group_name)"),
+            ("idx_cte_trial_phase", "fact_clinical_trial_event(trial_phase)"),
+            ("idx_regulatory_approval_status", "dim_candidate_regulatory(approval_status)"),
+            # Trial date filters resolve through the dim_date join
+            # (`dt.full_date` for start / end / last_updated), so the
+            # index goes on dim_date — not on a non-existent
+            # `fact_clinical_trial_event(start_date)` column.
+            ("idx_dim_date_full_date", "dim_date(full_date)"),
         ]
         for name, definition in indexes:
             cursor.execute(f"CREATE INDEX IF NOT EXISTS {name} ON {definition}")
