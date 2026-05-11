@@ -29,7 +29,7 @@ dev = [
 ]
 
 [tool.uv.sources]
-igh-data-sync = { git = "ssh://git@github.com/akvo/igh-data-sync.git" }
+igh-data-sync = { git = "https://github.com/akvo/igh-data-sync.git" }
 
 [tool.pytest.ini_options]
 markers = [
