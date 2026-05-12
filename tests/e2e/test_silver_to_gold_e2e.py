@@ -159,9 +159,7 @@ class TestDimensionTables:
         missing = expected - cols
         assert not missing, f"Missing columns: {missing}"
 
-    def test_dim_candidate_core_test_format_is_label_not_code(
-        self, gold_conn
-    ):
+    def test_dim_candidate_core_test_format_is_label_not_code(self, gold_conn):
         """`test_format` holds the optionset label, not the raw integer
         code. Numeric-only values would indicate the OPTIONSET resolver
         was bypassed in `schema_map.STAR_SCHEMA_MAP`."""

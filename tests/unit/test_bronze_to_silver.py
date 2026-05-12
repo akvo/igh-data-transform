@@ -680,14 +680,9 @@ class TestOptionsetRenaming:
     def test_testformat_optionset_is_renamed(self):
         """`_optionset_new_testformat` is renamed to `_optionset_testformat`."""
         assert "_optionset_new_testformat" in OPTIONSET_RENAMES
-        assert (
-            OPTIONSET_RENAMES["_optionset_new_testformat"]
-            == "_optionset_testformat"
-        )
+        assert OPTIONSET_RENAMES["_optionset_new_testformat"] == "_optionset_testformat"
 
-    def test_testformat_optionset_table_renamed_in_silver(
-        self, tmp_path: Path
-    ):
+    def test_testformat_optionset_table_renamed_in_silver(self, tmp_path: Path):
         """Bronze `_optionset_new_testformat` lands as silver
         `_optionset_testformat`, preserving rows."""
         bronze_db = tmp_path / "bronze.db"
@@ -723,9 +718,7 @@ class TestOptionsetRenaming:
 
         labels = {
             r[0]
-            for r in conn.execute(
-                "SELECT label FROM _optionset_testformat"
-            ).fetchall()
+            for r in conn.execute("SELECT label FROM _optionset_testformat").fetchall()
         }
         conn.close()
         assert labels == {
@@ -795,9 +788,7 @@ class TestOptionsetRenaming:
         # Python-native types exactly as the gold-layer extractor would see them.
         conn = sqlite3.connect(str(silver_db))
         rows = conn.execute("SELECT testformat FROM vin_candidates").fetchall()
-        col_type = conn.execute(
-            "PRAGMA table_info(vin_candidates)"
-        ).fetchall()
+        col_type = conn.execute("PRAGMA table_info(vin_candidates)").fetchall()
         conn.close()
 
         col_info = {row[1]: row[2] for row in col_type}  # name -> type
