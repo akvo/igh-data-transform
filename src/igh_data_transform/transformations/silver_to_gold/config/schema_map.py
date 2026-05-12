@@ -254,6 +254,8 @@ STAR_SCHEMA_MAP = {
         "collaborator": "collaborator",
         "funder_type": "fundertype",
         "interventions": "interventions",
+        "conditions": "conditions",
+        "primary_completion_date_key": "FK:dim_date.full_date|EXTRACT_DATE:primarycompletiondate",
         "outcome_measure": "COALESCE(outcomemeasure_primary, outcomemeasure_secondary)",
         "sex": "sex",
         "study_design": "study_design",
