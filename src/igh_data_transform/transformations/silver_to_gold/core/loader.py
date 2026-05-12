@@ -386,6 +386,10 @@ class Loader:
                 "dim_candidate_core(indication_type)",
             ),
             ("idx_candidate_core_candidate_type", "dim_candidate_core(candidate_type)"),
+            (
+                "idx_candidate_core_test_format",
+                "dim_candidate_core(test_format)",
+            ),
             ("idx_disease_global_health_area", "dim_disease(global_health_area)"),
             ("idx_disease_disease_group_name", "dim_disease(disease_group_name)"),
             ("idx_cte_trial_phase", "fact_clinical_trial_event(trial_phase)"),

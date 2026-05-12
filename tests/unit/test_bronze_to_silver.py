@@ -676,3 +676,141 @@ class TestOptionsetRenaming:
         conn.close()
 
         assert "_optionset_unknown_field" in tables
+
+    def test_testformat_optionset_is_renamed(self):
+        """`_optionset_new_testformat` is renamed to `_optionset_testformat`."""
+        assert "_optionset_new_testformat" in OPTIONSET_RENAMES
+        assert OPTIONSET_RENAMES["_optionset_new_testformat"] == "_optionset_testformat"
+
+    def test_testformat_optionset_table_renamed_in_silver(self, tmp_path: Path):
+        """Bronze `_optionset_new_testformat` lands as silver
+        `_optionset_testformat`, preserving rows."""
+        bronze_db = tmp_path / "bronze.db"
+        silver_db = tmp_path / "silver.db"
+        conn = sqlite3.connect(str(bronze_db))
+        conn.execute("""
+            CREATE TABLE _optionset_new_testformat (
+                code INTEGER,
+                label TEXT,
+                first_seen TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO _optionset_new_testformat VALUES
+                (100000000, 'Cartridge-based processing', '2026-01-09'),
+                (100000005, 'Rapid diagnostic test (strip or cassette)',
+                 '2026-01-09')
+        """)
+        conn.commit()
+        conn.close()
+
+        bronze_to_silver(str(bronze_db), str(silver_db))
+
+        conn = sqlite3.connect(str(silver_db))
+        tables = {
+            r[0]
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        assert "_optionset_testformat" in tables
+        assert "_optionset_new_testformat" not in tables
+
+        labels = {
+            r[0]
+            for r in conn.execute("SELECT label FROM _optionset_testformat").fetchall()
+        }
+        conn.close()
+        assert labels == {
+            "Cartridge-based processing",
+            "Rapid diagnostic test (strip or cassette)",
+        }
+
+    def test_vin_candidates_testformat_cast_to_int64(self, tmp_path: Path):
+        """Silver `vin_candidates.testformat` carries a nullable `Int64` dtype.
+
+        The cast is gated by `_SILVER_OPTIONSET_COLUMNS`, which is derived
+        from `OPTIONSET_RENAMES`.  Adding `_optionset_new_testformat` to that
+        map (commit b94c7ac) causes the orchestrator to cast `testformat` after
+        `transform_candidates` returns.  This regression guard locks that
+        behaviour so a future refactor of `_SILVER_OPTIONSET_COLUMNS` cannot
+        silently drop the cast and break the OPTIONSET resolver's integer-keyed
+        cache lookups.
+        """
+        bronze_db = tmp_path / "bronze.db"
+        silver_db = tmp_path / "silver.db"
+        conn = sqlite3.connect(str(bronze_db))
+
+        # Minimal vin_candidates fixture: only the columns the transformer
+        # needs to not error plus `new_testformat` with a mix of real integer
+        # codes and a NULL.  The NULL value is the critical case:
+        #
+        # - Bronze raw data comes from Dataverse as floats (e.g. 100000005.0).
+        # - When pandas reads a bronze column with mixed int/NULL values it uses
+        #   float64 (NaN represents missing integers).
+        # - Without the Int64 cast, `df_transformed["testformat"]` stays float64
+        #   and `to_sql` writes 100000005.0 as REAL in SQLite.
+        # - With the Int64 cast, the float is truncated to integer and `to_sql`
+        #   writes 100000005 as INTEGER in SQLite.
+        # - The gold-layer OPTIONSET resolver (`lookup_optionset`) builds a
+        #   cache keyed by Python `int`.  A REAL value (100000005.0) misses the
+        #   cache; an INTEGER value (100000005) hits it.
+        #
+        # We simulate the bronze-float scenario by inserting a REAL value.
+        conn.execute("""
+            CREATE TABLE vin_candidates (
+                vin_candidateid TEXT,
+                vin_name TEXT,
+                vin_product TEXT,
+                new_testformat REAL,
+                new_includeinpipeline REAL,
+                vin_developmentstatus INTEGER,
+                statecode INTEGER,
+                valid_from TEXT,
+                valid_to TEXT
+            )
+        """)
+        conn.execute("""
+            INSERT INTO vin_candidates VALUES
+                ('cand-1', 'Test Candidate', 'Diagnostics',
+                 100000005.0, 100000000.0, 909670000, 0,
+                 '2025-01-01', NULL),
+                ('cand-2', 'No Format Candidate', 'Vaccines',
+                 NULL, 100000000.0, 909670000, 0,
+                 '2025-01-01', NULL)
+        """)
+        conn.commit()
+        conn.close()
+
+        bronze_to_silver(str(bronze_db), str(silver_db))
+
+        # Read back the silver column using the raw sqlite3 connection so we get
+        # Python-native types exactly as the gold-layer extractor would see them.
+        conn = sqlite3.connect(str(silver_db))
+        rows = conn.execute("SELECT testformat FROM vin_candidates").fetchall()
+        col_type = conn.execute("PRAGMA table_info(vin_candidates)").fetchall()
+        conn.close()
+
+        col_info = {row[1]: row[2] for row in col_type}  # name -> type
+
+        # After the Int64 cast, `to_sql` must write the column as INTEGER
+        # (not REAL).  A REAL type here means the cast was skipped and float
+        # values would silently miss the integer-keyed optionset cache.
+        assert "testformat" in col_info, (
+            "Column `testformat` missing from silver vin_candidates — "
+            "COLUMN_RENAMES may have dropped the rename."
+        )
+        assert col_info["testformat"].upper() == "INTEGER", (
+            f"Expected SQLite type INTEGER for `testformat`, "
+            f"got {col_info['testformat']!r}.  "
+            "Without the Int64 cast in bronze_to_silver.py:204-205, float "
+            "codes (e.g. 100000005.0) are written as REAL and miss the "
+            "gold-layer optionset resolver's integer-keyed cache."
+        )
+        # Non-null value must survive as a Python int, not a float.
+        non_null_values = [r[0] for r in rows if r[0] is not None]
+        assert len(non_null_values) == 1
+        assert non_null_values[0] == 100000005
+        assert isinstance(non_null_values[0], int), (
+            f"Expected int, got {type(non_null_values[0]).__name__}."
+        )

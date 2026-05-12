@@ -60,7 +60,7 @@ STAR_SCHEMA_MAP = {
         "type_of_preclinical_results": "typeofpreclinicalresults",
         "preclinical_results_source": "preclinicalresultssource",
         "recent_updates": "recentupdates",
-        "test_format": "testformat",
+        "test_format": "OPTIONSET:testformat",
         "technology_principle": "technologyprinciple",
         "target_population": "new_targetpopulation",
         "route_of_administration": "routeofadministration",

@@ -57,3 +57,20 @@ class TestSilverToGold:
             mock_run_etl.assert_called_once_with(silver_db, expected_gold)
         finally:
             stg.run_etl = original_run_etl
+
+
+class TestStarSchemaMap:
+    """Behaviour-locking tests for the silver→gold STAR_SCHEMA_MAP config."""
+
+    def test_test_format_uses_optionset_resolution(self) -> None:
+        """`dim_candidate_core.test_format` resolves the integer code to
+        its label via the OPTIONSET cache, matching every other category
+        column on the same dimension."""
+        from igh_data_transform.transformations.silver_to_gold.config.schema_map import (  # noqa: E501
+            STAR_SCHEMA_MAP,
+        )
+
+        assert (
+            STAR_SCHEMA_MAP["dim_candidate_core"]["test_format"]
+            == "OPTIONSET:testformat"
+        )

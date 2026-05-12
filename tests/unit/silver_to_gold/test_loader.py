@@ -122,3 +122,22 @@ class TestCreateIndexes:
         ).fetchall()
         conn.close()
         assert len(indexes) > 0
+
+    def test_creates_test_format_index(self, loader_path):
+        """`dim_candidate_core.test_format` is a DataTable category-filter
+        column and must be indexed for parity with its siblings
+        (`current_rd_stage`, `indication_type`, `candidate_type`)."""
+        with Loader(loader_path) as loader:
+            loader.create_schema()
+            loader.create_indexes()
+
+        conn = sqlite3.connect(str(loader_path))
+        index_names = {
+            r[0]
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master "
+                "WHERE type='index' AND name NOT LIKE 'sqlite_%'"
+            ).fetchall()
+        }
+        conn.close()
+        assert "idx_candidate_core_test_format" in index_names
