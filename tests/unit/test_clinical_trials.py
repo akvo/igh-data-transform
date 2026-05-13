@@ -358,7 +358,10 @@ class TestTransformClinicalTrials:
             "vin_source": ["ClinicalTrials.gov", "WHO ICTRP"],
             "new_resultsfirstposted": [None, None],
             "versionnumber": [100, 200],
-            "new_primarycompletiondate": [None, None],
+            "new_primarycompletiondate": [
+                "2024-10-28T13:00:00Z",
+                "2025-12-31T13:00:00Z",
+            ],
             "new_primaryoutcomemeasures": [None, None],
             "timezoneruleversionnumber": [0.0, None],
             "vin_recentupdates": [None, None],
@@ -442,7 +445,6 @@ class TestTransformClinicalTrials:
             "_owningbusinessunit_value",
             "new_resultsfirstposted",
             "versionnumber",
-            "new_primarycompletiondate",
             "new_primaryoutcomemeasures",
             "timezoneruleversionnumber",
             "new_secondaryoutcomemeasures",
@@ -454,6 +456,12 @@ class TestTransformClinicalTrials:
         ]
         for col in dropped:
             assert col not in result.columns
+
+    def test_renames_primary_completion_date(self):
+        df = self._make_input_df()
+        result, _ = transform_clinical_trials(df)
+        assert "primarycompletiondate" in result.columns
+        assert "new_primarycompletiondate" not in result.columns
 
     def test_drops_empty_columns_preserving_valid_to(self):
         df = self._make_input_df()
