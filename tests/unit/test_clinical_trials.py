@@ -358,7 +358,10 @@ class TestTransformClinicalTrials:
             "vin_source": ["ClinicalTrials.gov", "WHO ICTRP"],
             "new_resultsfirstposted": [None, None],
             "versionnumber": [100, 200],
-            "new_primarycompletiondate": ["2024-10-28T13:00:00Z", "2025-12-31T13:00:00Z"],
+            "new_primarycompletiondate": [
+                "2024-10-28T13:00:00Z",
+                "2025-12-31T13:00:00Z",
+            ],
             "new_primaryoutcomemeasures": [None, None],
             "timezoneruleversionnumber": [0.0, None],
             "vin_recentupdates": [None, None],
