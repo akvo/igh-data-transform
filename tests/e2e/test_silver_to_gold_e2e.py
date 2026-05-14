@@ -195,6 +195,26 @@ class TestDimensionTables:
         missing = expected - cols
         assert not missing, f"Missing columns: {missing}"
 
+    # -- dim_priority --
+
+    def test_dim_priority_dedicated_to_women_or_children_is_label(self, gold_conn):
+        """`dedicated_to_women_or_children` holds the Two-Options label
+        ("Yes"/"No"), not the raw integer code (0/1). Numeric-only values
+        would indicate the OPTIONSET resolver was bypassed."""
+        df = _read_table(gold_conn, "dim_priority")
+        assert "dedicated_to_women_or_children" in df.columns, (
+            "dim_priority missing dedicated_to_women_or_children column"
+        )
+        non_null = df["dedicated_to_women_or_children"].dropna()
+        if non_null.empty:
+            pytest.skip(
+                "No non-null dedicated_to_women_or_children rows in current data"
+            )
+        # The label set is closed: Two-Options always resolves to {Yes, No}.
+        assert set(non_null.astype(str).unique()) <= {"Yes", "No"}, (
+            f"Unexpected labels: {set(non_null.astype(str).unique())}"
+        )
+
     # -- dim_geography --
 
     def test_dim_geography_has_iso_code(self, gold_conn):
