@@ -167,6 +167,7 @@ STAR_SCHEMA_MAP = {
         "efficacy": "efficacy",
         "safety": "safety",
         "source": "source",
+        "dedicated_to_women_or_children": "OPTIONSET:crc8b_dedicatedtowomenorchildren",
     },
     "dim_developer": {
         "_source_table": "vin_candidates",

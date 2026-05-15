@@ -74,3 +74,19 @@ class TestStarSchemaMap:
             STAR_SCHEMA_MAP["dim_candidate_core"]["test_format"]
             == "OPTIONSET:testformat"
         )
+
+    def test_dedicated_to_women_or_children_uses_optionset_resolution(
+        self,
+    ) -> None:
+        """`dim_priority.dedicated_to_women_or_children` resolves the
+        Two-Options code (0/1) to its label (No/Yes) via the OPTIONSET
+        cache, so the dashboard reads readable strings instead of raw
+        Dataverse codes — same pattern as `test_format`."""
+        from igh_data_transform.transformations.silver_to_gold.config.schema_map import (  # noqa: E501
+            STAR_SCHEMA_MAP,
+        )
+
+        assert (
+            STAR_SCHEMA_MAP["dim_priority"]["dedicated_to_women_or_children"]
+            == "OPTIONSET:crc8b_dedicatedtowomenorchildren"
+        )
