@@ -236,6 +236,53 @@ class TestTransformDiseases:
         assert result["globalhealtharea"].iloc[0] == "100000001"
         assert result["globalhealtharea"].iloc[1] == "100000000"
 
+    def test_globalhealtharea_stays_null_when_no_flag_is_set(self):
+        # Rows like "R&D for all global health areas" have a missing
+        # code AND no inclusion flag. They should stay NULL -- they're
+        # cross-cutting buckets that don't belong to a single GHA.
+        # Row 1 carries a populated code purely so the column is not
+        # all-null in this fixture (otherwise `drop_empty_columns`
+        # removes it -- a situation that never arises in production
+        # because the column always has 448 populated rows).
+        df = self._make_input_df(
+            overrides={
+                "new_globalhealtharea": [None, "100000002"],
+                "new_incl_nd": [0, 0],
+                "new_incl_eid": [0, 0],
+            }
+        )
+        result, _ = transform_diseases(df)
+        assert pd.isna(result["globalhealtharea"].iloc[0])
+        assert result["globalhealtharea"].iloc[1] == "100000002"
+
+    def test_existing_globalhealtharea_code_is_not_overwritten_by_flags(self):
+        # If the source already provides an option-set code, the
+        # back-fill must be a no-op even when the flags happen to
+        # disagree. We never let derived flags rewrite an authoritative
+        # source value.
+        df = self._make_input_df(
+            overrides={
+                "new_globalhealtharea": ["100000001", "100000000"],
+                "new_incl_nd": [1, 0],  # deliberately contradicts row 0
+                "new_incl_eid": [0, 1],  # deliberately contradicts row 1
+            }
+        )
+        result, _ = transform_diseases(df)
+        assert result["globalhealtharea"].iloc[0] == "100000001"
+        assert result["globalhealtharea"].iloc[1] == "100000000"
+
+    def test_inclusion_flag_columns_are_not_in_silver_output(self):
+        # The flags are consulted in-flight by the back-fill and then
+        # dropped. They should not leak into silver because the code
+        # column is the single source of truth downstream.
+        df = self._make_input_df()
+        result, _ = transform_diseases(df)
+        assert "new_incl_nd" not in result.columns
+        assert "new_incl_eid" not in result.columns
+        # Also check the renamed variants don't appear by mistake.
+        assert "incl_nd" not in result.columns
+        assert "incl_eid" not in result.columns
+
     def test_normalizes_sti_primary_when_suffix_matches_secondary(self):
         # Three Bronze rows store new_diseasefilter as a parent-child
         # concatenation. Collapse only when the suffix exactly matches
