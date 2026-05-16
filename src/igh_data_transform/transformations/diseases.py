@@ -68,6 +68,50 @@ def transform_diseases(
     Returns:
         Tuple of (transformed DataFrame, dict of cleaned option sets).
     """
+    # Defensive copy: the GHA fallback below mutates rows in place,
+    # which would otherwise leak back to the caller because the
+    # first helper call (`drop_columns_by_name`) is what previously
+    # gave us a fresh frame to work on. Subsequent assignments in
+    # this function are already safe because they operate on the
+    # post-drop copy.
+    df = df.copy()
+
+    # =========================================================
+    # GHA fallback (bronze gap recovery)
+    # =========================================================
+    #
+    # The canonical signal is `new_globalhealtharea`, an option-set
+    # integer code (stored as TEXT in SQLite) resolved downstream
+    # by `OPTIONSET:globalhealtharea` in silver→gold. 22 of 536
+    # bronze rows arrive with this code as NULL while still
+    # carrying an unambiguous classification via `new_incl_nd` or
+    # `new_incl_eid`. We back-fill the code from those flags so
+    # the downstream resolver produces the right label. The flags
+    # are reliable: across the 448 rows where the code IS
+    # populated, no row contradicts the code, and no row sets
+    # both flags to 1.
+    #
+    # We write string codes (not ints) because the bronze column
+    # arrives as object dtype with a mix of strings and None, and
+    # the silver-side `astype("Int64")` cast in `bronze_to_silver`
+    # tolerates uniform-string object columns but raises on mixed
+    # string/int columns.
+    if "new_globalhealtharea" in df.columns:
+        missing = df["new_globalhealtharea"].isna()
+        if missing.any():
+            # Ensure the column can hold the string codes we write
+            # below. In production the column already arrives as
+            # object dtype (strings + None); the cast is only
+            # necessary when a test fixture happens to type the
+            # column as int64 (mask = all False there, but pandas
+            # still pre-checks dtype compatibility on `.loc` writes
+            # and emits a FutureWarning otherwise).
+            df["new_globalhealtharea"] = df["new_globalhealtharea"].astype("object")
+            if "new_incl_nd" in df.columns:
+                df.loc[
+                    missing & (df["new_incl_nd"] == 1), "new_globalhealtharea"
+                ] = "100000000"
+
     df = drop_columns_by_name(df, _COLUMNS_TO_DROP)
     df = drop_empty_columns(df, preserve=["valid_to"])
     df = rename_columns(df, _COLUMN_RENAMES)

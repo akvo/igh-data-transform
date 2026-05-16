@@ -203,6 +203,25 @@ class TestTransformDiseases:
         assert pd.isna(result["secondary_disease_name"].iloc[0])
         assert pd.isna(result["secondary_disease_name"].iloc[1])
 
+    def test_backfills_globalhealtharea_from_nd_flag(self):
+        # Bronze gap recovery: when `new_globalhealtharea` arrives as
+        # None (the SQLite-driver render of a TEXT NULL) but the row
+        # carries the ND inclusion flag, we back-fill the option-set
+        # code so the silver→gold OPTIONSET resolver produces the
+        # right label.
+        df = self._make_input_df(
+            overrides={
+                "new_globalhealtharea": [None, "100000002"],
+                "new_incl_nd": [1, 0],
+                "new_incl_eid": [0, 0],
+            }
+        )
+        result, _ = transform_diseases(df)
+        # Row 0: code was missing, ND flag set -> back-filled to 100000000.
+        # Row 1: code already present -> unchanged.
+        assert result["globalhealtharea"].iloc[0] == "100000000"
+        assert result["globalhealtharea"].iloc[1] == "100000002"
+
     def test_normalizes_sti_primary_when_suffix_matches_secondary(self):
         # Three Bronze rows store new_diseasefilter as a parent-child
         # concatenation. Collapse only when the suffix exactly matches
