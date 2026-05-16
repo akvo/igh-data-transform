@@ -222,6 +222,20 @@ class TestTransformDiseases:
         assert result["globalhealtharea"].iloc[0] == "100000000"
         assert result["globalhealtharea"].iloc[1] == "100000002"
 
+    def test_backfills_globalhealtharea_from_eid_flag(self):
+        # Zika is the canonical example: code missing in bronze but
+        # `new_incl_eid = 1` marks it as an Emerging Infectious Disease.
+        df = self._make_input_df(
+            overrides={
+                "new_globalhealtharea": [None, "100000000"],
+                "new_incl_nd": [0, 1],
+                "new_incl_eid": [1, 0],
+            }
+        )
+        result, _ = transform_diseases(df)
+        assert result["globalhealtharea"].iloc[0] == "100000001"
+        assert result["globalhealtharea"].iloc[1] == "100000000"
+
     def test_normalizes_sti_primary_when_suffix_matches_secondary(self):
         # Three Bronze rows store new_diseasefilter as a parent-child
         # concatenation. Collapse only when the suffix exactly matches
