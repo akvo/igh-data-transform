@@ -108,13 +108,13 @@ def transform_diseases(
             # and emits a FutureWarning otherwise).
             df["new_globalhealtharea"] = df["new_globalhealtharea"].astype("object")
             if "new_incl_nd" in df.columns:
-                df.loc[
-                    missing & (df["new_incl_nd"] == 1), "new_globalhealtharea"
-                ] = "100000000"
+                df.loc[missing & (df["new_incl_nd"] == 1), "new_globalhealtharea"] = (
+                    "100000000"
+                )
             if "new_incl_eid" in df.columns:
-                df.loc[
-                    missing & (df["new_incl_eid"] == 1), "new_globalhealtharea"
-                ] = "100000001"
+                df.loc[missing & (df["new_incl_eid"] == 1), "new_globalhealtharea"] = (
+                    "100000001"
+                )
 
     df = drop_columns_by_name(df, _COLUMNS_TO_DROP)
     df = drop_empty_columns(df, preserve=["valid_to"])
