@@ -195,6 +195,35 @@ class TestDimensionTables:
         missing = expected - cols
         assert not missing, f"Missing columns: {missing}"
 
+    def test_dim_disease_priority_bearing_have_global_health_area(self, gold_conn):
+        """The 7 priority-bearing diseases that previously projected
+        as NULL global_health_area must now resolve to their expected
+        WHO category. See docs/superpowers/notes/2026-05-16-
+        priority-alignment-response.md for the data analysis."""
+        expected = {
+            "Buruli ulcer": "Neglected disease",
+            "HIV/AIDS": "Neglected disease",
+            "Leprosy": "Neglected disease",
+            "Mycetoma": "Neglected disease",
+            "Rheumatic fever": "Neglected disease",
+            "Scabies": "Neglected disease",
+            "Zika": "Emerging infectious disease",
+        }
+        cur = gold_conn.execute(
+            "SELECT TRIM(disease_name) AS disease_name, global_health_area "
+            "FROM dim_disease "
+            "WHERE TRIM(disease_name) IN "
+            "  ('Buruli ulcer','HIV/AIDS','Leprosy','Mycetoma',"
+            "   'Rheumatic fever','Scabies','Zika')"
+        )
+        observed = {row["disease_name"]: row["global_health_area"] for row in cur}
+        missing = set(expected) - set(observed)
+        assert not missing, f"Expected disease rows absent from dim_disease: {missing}"
+        for name, gha in expected.items():
+            assert observed[name] == gha, (
+                f"{name}: expected GHA={gha!r}, got {observed[name]!r}"
+            )
+
     # -- dim_priority --
 
     def test_dim_priority_dedicated_to_women_or_children_is_label(self, gold_conn):
