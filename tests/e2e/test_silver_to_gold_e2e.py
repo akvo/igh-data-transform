@@ -490,8 +490,8 @@ class TestReferentialIntegrity:
         # No row carries a literal numeric-code value — silver's
         # developers.py null-out must remain effective on the gold
         # path.  Match strings like "5001", "5006", "6634", etc.
-        numeric_like = dev["org_type"].astype(str).str.fullmatch(r"\d+")
-        leaked = dev[numeric_like.fillna(False)]
+        numeric_like = dev["org_type"].dropna().astype(str).str.fullmatch(r"\d+")
+        leaked = dev.loc[numeric_like.reindex(dev.index).fillna(False)]
         assert leaked.empty, (
             f"{len(leaked)} dim_developer rows carry a numeric-code "
             f"org_type that should have been nulled in silver: "
