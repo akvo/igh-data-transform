@@ -269,6 +269,13 @@ class Transformer:
         enrich_from = special.get("enrich_from")
         enrich_lookup: dict[str, dict[str, Any]] = {}
         if enrich_from:
+            required = {"table", "match_target", "attach"}
+            missing = required - enrich_from.keys()
+            if missing:
+                raise ValueError(
+                    f"enrich_from block for {table_name!r} is missing "
+                    f"keys: {sorted(missing)}"
+                )
             match_target = enrich_from["match_target"]
             attach_map = enrich_from["attach"]  # {target_col: source_col}
             needed_cols = [match_target, *attach_map.values()]

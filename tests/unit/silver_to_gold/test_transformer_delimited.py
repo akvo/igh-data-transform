@@ -141,3 +141,85 @@ class TestDelimitedDimensionWithEnrichment:
             ],
         )
         assert rows[0]["org_type"] == "For Profit SME"
+
+    def test_duplicate_org_name_first_value_wins_over_later_different_value(self):
+        # The "first wins" contract must hold even when later duplicate
+        # rows carry different values — guards against an accidental
+        # last-wins or pick-most-common refactor.
+        rows = self._build(
+            candidates=[{"developersaggregated": "Ambiguous Org"}],
+            developers=[
+                {"org_name": "Ambiguous Org", "org_type": "For Profit SME"},
+                {"org_name": "Ambiguous Org",
+                 "org_type": "Public sector government"},
+            ],
+        )
+        assert rows[0]["org_type"] == "For Profit SME"
+
+    def test_null_match_target_row_in_secondary_table_is_skipped(self):
+        # A vin_developers row with no org_name cannot contribute to the
+        # lookup — skip it so the real "Known Org" match still wins.
+        rows = self._build(
+            candidates=[{"developersaggregated": "Known Org"}],
+            developers=[
+                {"org_name": None, "org_type": "Phantom"},
+                {"org_name": "Known Org", "org_type": "For Profit SME"},
+            ],
+        )
+        assert rows[0]["org_type"] == "For Profit SME"
+
+    def test_empty_secondary_table_yields_all_none_org_type(self):
+        # Realistic during a cold run before vin_developers is populated.
+        rows = self._build(
+            candidates=[{"developersaggregated": "Any Org"}],
+            developers=[],
+        )
+        assert rows == [{"developer_name": "Any Org", "org_type": None}]
+
+
+class TestDelimitedDimensionEnrichmentValidation:
+    """Misconfigured enrich_from blocks should fail loudly, not silently."""
+
+    def _run_with_enrich(self, enrich_from):
+        ext = _extractor_with_tables({
+            "vin_candidates": [{"developersaggregated": "Any Org"}],
+        })
+        config = {
+            "_source_table": "vin_candidates",
+            "_pk": "developer_key",
+            "developer_name": "DELIMITED_VALUE",
+            "org_type": "ENRICHED",
+        }
+        special = {
+            "extract_distinct_from_delimited": True,
+            "source_column": "developersaggregated",
+            "delimiter": ";",
+            "enrich_from": enrich_from,
+        }
+        return Transformer(ext)._transform_delimited_dimension(
+            "dim_developer", config, special
+        )
+
+    def test_missing_table_key_raises(self):
+        import pytest
+        with pytest.raises(ValueError, match="missing keys"):
+            self._run_with_enrich({
+                "match_target": "org_name",
+                "attach": {"org_type": "org_type"},
+            })
+
+    def test_missing_match_target_key_raises(self):
+        import pytest
+        with pytest.raises(ValueError, match="missing keys"):
+            self._run_with_enrich({
+                "table": "vin_developers",
+                "attach": {"org_type": "org_type"},
+            })
+
+    def test_missing_attach_key_raises(self):
+        import pytest
+        with pytest.raises(ValueError, match="missing keys"):
+            self._run_with_enrich({
+                "table": "vin_developers",
+                "match_target": "org_name",
+            })
