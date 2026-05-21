@@ -14,9 +14,7 @@ def _extractor_with_tables(tables: dict[str, list[dict]]) -> MagicMock:
     def extract_table(table_name, columns=None):
         rows = tables.get(table_name, [])
         if columns:
-            yield from (
-                {c: r.get(c) for c in columns} for r in rows
-            )
+            yield from ({c: r.get(c) for c in columns} for r in rows)
         else:
             yield from rows
 
@@ -29,13 +27,15 @@ class TestDelimitedDimensionWithoutEnrichment:
     """The pre-existing dim_funder-style behaviour must keep working."""
 
     def test_emits_one_row_per_distinct_value_sorted(self):
-        ext = _extractor_with_tables({
-            "vin_candidates": [
-                {"developersaggregated": "Charlie Inc; Alpha Ltd"},
-                {"developersaggregated": "Bravo Co; Alpha Ltd"},
-                {"developersaggregated": None},
-            ],
-        })
+        ext = _extractor_with_tables(
+            {
+                "vin_candidates": [
+                    {"developersaggregated": "Charlie Inc; Alpha Ltd"},
+                    {"developersaggregated": "Bravo Co; Alpha Ltd"},
+                    {"developersaggregated": None},
+                ],
+            }
+        )
         transformer = Transformer(ext)
         config = {
             "_source_table": "vin_candidates",
@@ -63,10 +63,12 @@ class TestDelimitedDimensionWithEnrichment:
     """New: _special.enrich_from attaches columns from a secondary table."""
 
     def _build(self, candidates, developers):
-        ext = _extractor_with_tables({
-            "vin_candidates": candidates,
-            "vin_developers": developers,
-        })
+        ext = _extractor_with_tables(
+            {
+                "vin_candidates": candidates,
+                "vin_developers": developers,
+            }
+        )
         config = {
             "_source_table": "vin_candidates",
             "_pk": "developer_key",
@@ -92,8 +94,10 @@ class TestDelimitedDimensionWithEnrichment:
             candidates=[{"developersaggregated": "Sanaria Inc; Swiss TPH"}],
             developers=[
                 {"org_name": "Sanaria Inc", "org_type": "For Profit SME"},
-                {"org_name": "Swiss TPH",
-                 "org_type": "Academic and other research institutions"},
+                {
+                    "org_name": "Swiss TPH",
+                    "org_type": "Academic and other research institutions",
+                },
             ],
         )
         by_name = {r["developer_name"]: r["org_type"] for r in rows}
@@ -102,9 +106,11 @@ class TestDelimitedDimensionWithEnrichment:
 
     def test_unmatched_name_gets_none(self):
         rows = self._build(
-            candidates=[{
-                "developersaggregated": "Sanaria Inc; Free-Text-Only Co",
-            }],
+            candidates=[
+                {
+                    "developersaggregated": "Sanaria Inc; Free-Text-Only Co",
+                }
+            ],
             developers=[
                 {"org_name": "Sanaria Inc", "org_type": "For Profit SME"},
             ],
@@ -150,8 +156,7 @@ class TestDelimitedDimensionWithEnrichment:
             candidates=[{"developersaggregated": "Ambiguous Org"}],
             developers=[
                 {"org_name": "Ambiguous Org", "org_type": "For Profit SME"},
-                {"org_name": "Ambiguous Org",
-                 "org_type": "Public sector government"},
+                {"org_name": "Ambiguous Org", "org_type": "Public sector government"},
             ],
         )
         assert rows[0]["org_type"] == "For Profit SME"
@@ -181,9 +186,11 @@ class TestDelimitedDimensionEnrichmentValidation:
     """Misconfigured enrich_from blocks should fail loudly, not silently."""
 
     def _run_with_enrich(self, enrich_from):
-        ext = _extractor_with_tables({
-            "vin_candidates": [{"developersaggregated": "Any Org"}],
-        })
+        ext = _extractor_with_tables(
+            {
+                "vin_candidates": [{"developersaggregated": "Any Org"}],
+            }
+        )
         config = {
             "_source_table": "vin_candidates",
             "_pk": "developer_key",
@@ -202,24 +209,33 @@ class TestDelimitedDimensionEnrichmentValidation:
 
     def test_missing_table_key_raises(self):
         import pytest
+
         with pytest.raises(ValueError, match="missing keys"):
-            self._run_with_enrich({
-                "match_target": "org_name",
-                "attach": {"org_type": "org_type"},
-            })
+            self._run_with_enrich(
+                {
+                    "match_target": "org_name",
+                    "attach": {"org_type": "org_type"},
+                }
+            )
 
     def test_missing_match_target_key_raises(self):
         import pytest
+
         with pytest.raises(ValueError, match="missing keys"):
-            self._run_with_enrich({
-                "table": "vin_developers",
-                "attach": {"org_type": "org_type"},
-            })
+            self._run_with_enrich(
+                {
+                    "table": "vin_developers",
+                    "attach": {"org_type": "org_type"},
+                }
+            )
 
     def test_missing_attach_key_raises(self):
         import pytest
+
         with pytest.raises(ValueError, match="missing keys"):
-            self._run_with_enrich({
-                "table": "vin_developers",
-                "match_target": "org_name",
-            })
+            self._run_with_enrich(
+                {
+                    "table": "vin_developers",
+                    "match_target": "org_name",
+                }
+            )

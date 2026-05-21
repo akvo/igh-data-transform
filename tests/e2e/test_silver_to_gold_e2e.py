@@ -476,9 +476,7 @@ class TestReferentialIntegrity:
         dev = _read_table(gold_conn, "dim_developer")
 
         # Column exists and is the right shape.
-        assert "org_type" in dev.columns, (
-            "dim_developer is missing the org_type column"
-        )
+        assert "org_type" in dev.columns, "dim_developer is missing the org_type column"
 
         # At least some rows carry a non-NULL value.
         populated = dev["org_type"].notna().sum()

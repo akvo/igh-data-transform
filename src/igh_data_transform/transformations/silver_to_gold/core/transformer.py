@@ -279,16 +279,13 @@ class Transformer:
             match_target = enrich_from["match_target"]
             attach_map = enrich_from["attach"]  # {target_col: source_col}
             needed_cols = [match_target, *attach_map.values()]
-            for row in self.extractor.extract_table(
-                enrich_from["table"], needed_cols
-            ):
+            for row in self.extractor.extract_table(enrich_from["table"], needed_cols):
                 key = row.get(match_target)
                 if not key or key in enrich_lookup:
                     # First occurrence wins; later duplicates skipped.
                     continue
                 enrich_lookup[key] = {
-                    target: row.get(source)
-                    for target, source in attach_map.items()
+                    target: row.get(source) for target, source in attach_map.items()
                 }
 
         # Create dimension rows.
