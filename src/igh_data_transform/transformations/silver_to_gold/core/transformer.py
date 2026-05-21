@@ -237,32 +237,65 @@ class Transformer:
     def _transform_delimited_dimension(
         self, table_name: str, config: dict, special: dict
     ) -> list[dict]:
-        """Transform dimension by extracting distinct values from a delimited field."""
+        """Transform dimension by extracting distinct values from a delimited field.
+
+        If ``special`` carries an ``enrich_from`` block, also read a secondary
+        silver table once and build a ``{match_target_value: {target_col: value}}``
+        map; values in that map are attached to each emitted row whose
+        ``DELIMITED_VALUE`` matches.  Columns whose source expression is the
+        sentinel ``"ENRICHED"`` get the attached value (or ``None`` if no match).
+
+        Where the same ``match_target`` value appears on multiple secondary
+        rows, the first occurrence wins — see the spec for why iteration
+        order is analytically irrelevant for the dim_developer/org_type case
+        this hook was introduced for.
+        """
         source_table = config["_source_table"]
         source_column = special["source_column"]
         delimiter = special["delimiter"]
 
-        # Collect all unique values
+        # Collect all unique values from the delimited source field.
         unique_values: set[str] = set()
 
         for row in self.extractor.extract_table(source_table, [source_column]):
             delimited_value = row.get(source_column)
             if delimited_value:
-                # Split by delimiter and trim whitespace
                 parts = [p.strip() for p in delimited_value.split(delimiter)]
                 for part in parts:
                     if part:  # Skip empty strings
                         unique_values.add(part)
 
-        # Create dimension rows
+        # Optional name-based enrichment from a secondary silver table.
+        enrich_from = special.get("enrich_from")
+        enrich_lookup: dict[str, dict[str, Any]] = {}
+        if enrich_from:
+            match_target = enrich_from["match_target"]
+            attach_map = enrich_from["attach"]  # {target_col: source_col}
+            needed_cols = [match_target, *attach_map.values()]
+            for row in self.extractor.extract_table(
+                enrich_from["table"], needed_cols
+            ):
+                key = row.get(match_target)
+                if not key or key in enrich_lookup:
+                    # First occurrence wins; later duplicates skipped.
+                    continue
+                enrich_lookup[key] = {
+                    target: row.get(source)
+                    for target, source in attach_map.items()
+                }
+
+        # Create dimension rows.
         transformed = []
-        for value in sorted(unique_values):  # Sort for deterministic output
+        for value in sorted(unique_values):  # Sort for deterministic output.
+            attached = enrich_lookup.get(value, {})
             new_row = {}
             for target_col, source_expr in config.items():
                 if target_col.startswith("_"):
                     continue
                 if source_expr == "DELIMITED_VALUE":
                     new_row[target_col] = value
+                elif source_expr == "ENRICHED":
+                    new_row[target_col] = attached.get(target_col)
                 else:
                     new_row[target_col] = self._evaluate_expression(source_expr, {})
 
