@@ -104,6 +104,27 @@ def _enrich_from_accounts(
     df = df.drop(columns=["address1_country"])
 
     # --- Clean org type: null out purely numeric values ---
+    #
+    # Some accounts rows carry the literal Dataverse option-set code
+    # (e.g. "5001", "5006", "6634") in vin_organisationtype instead of
+    # the resolved text label — the source UI never replaced them.
+    # Pure-numeric strings are unsafe to show downstream so we null
+    # them out here; genuine text labels ("For Profit SME", "Academic
+    # and other research institutions", "Public sector government",
+    # etc.) are passed through untouched.
+    #
+    # This is LOAD-BEARING for the gold layer.  `dim_developer` in
+    # gold projects org_type onto distinct developer names from
+    # `vin_candidates.developersaggregated` by matching them to
+    # `silver.vin_developers.org_name` and pulling this same
+    # `org_type` column across.  A literal "5001" reaching that join
+    # would surface in the dashboard slide-in Developers table.
+    #
+    # Future migration: if `dim_developer` is restructured to
+    # outrigger to `dim_organization` via `accountid` (the proper
+    # Kimball fix), this null-out can move onto the
+    # `dim_organization.org_type` projection in `schema_map.py`
+    # instead of living here.  Until then, leave it.
     if "vin_organisationtype" in df.columns:
         mask = df["vin_organisationtype"].apply(
             lambda v: _is_numeric_string(v) if pd.notna(v) else False
