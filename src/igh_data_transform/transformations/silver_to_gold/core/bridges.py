@@ -386,5 +386,14 @@ def transform_delimited_bridge(
                     }
                 )
 
+    # Collapse the SCD2 fan-out from silver's vin_candidates. That table
+    # carries one row per (candidate, R&D-stage/pipeline year boundary)
+    # — see candidates._expand_temporal_rows — so iterating it emits
+    # the same (candidate_key, dim_key) pair once per version. The
+    # candidate-to-developer/funder relationship has no temporal scope
+    # at the gold layer, so we dedupe on the bridge's key columns
+    # (mirroring transform_union_bridge's contract).
+    transformed = _deduplicate(transformed, ("candidate_key", fk_col))
+
     logger.info(f"Transformed {len(transformed)} rows for {table_name}")
     return transformed
