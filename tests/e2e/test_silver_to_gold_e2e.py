@@ -466,6 +466,36 @@ class TestReferentialIntegrity:
             f"{len(orphans)} orphan last_updated_key values in fact_clinical_trial_event"
         )
 
+    # -- Dimension content --
+
+    def test_dim_developer_has_org_type_populated(self, gold_conn):
+        """org_type is name-matched from silver.vin_developers; the
+        well-populated org names (e.g. Sanaria, Swiss TPH) must come
+        through, while purely free-text entries are expected to be NULL.
+        """
+        dev = _read_table(gold_conn, "dim_developer")
+
+        # Column exists and is the right shape.
+        assert "org_type" in dev.columns, "dim_developer is missing the org_type column"
+
+        # At least some rows carry a non-NULL value.
+        populated = dev["org_type"].notna().sum()
+        assert populated > 100, (
+            f"Expected dim_developer.org_type to be populated for "
+            f"hundreds of rows; got {populated}"
+        )
+
+        # No row carries a literal numeric-code value — silver's
+        # developers.py null-out must remain effective on the gold
+        # path.  Match strings like "5001", "5006", "6634", etc.
+        numeric_like = dev["org_type"].dropna().astype(str).str.fullmatch(r"\d+")
+        leaked = dev.loc[numeric_like.reindex(dev.index).fillna(False)]
+        assert leaked.empty, (
+            f"{len(leaked)} dim_developer rows carry a numeric-code "
+            f"org_type that should have been nulled in silver: "
+            f"{leaked['org_type'].unique().tolist()[:5]}"
+        )
+
     # -- Bridge FKs --
 
     def test_bridge_candidate_developer_fks_valid(self, gold_conn):

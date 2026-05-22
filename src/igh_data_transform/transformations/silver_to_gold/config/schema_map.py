@@ -176,8 +176,31 @@ STAR_SCHEMA_MAP = {
             "extract_distinct_from_delimited": True,
             "source_column": "developersaggregated",
             "delimiter": ";",
+            # Pull org_type from silver vin_developers by matching the
+            # parsed developer name against org_name (the joined
+            # accounts.name from developers.py::_enrich_from_accounts).
+            #
+            # Coverage caveat: ~5% of names in developersaggregated
+            # have no matching accounts row (free-text-only entries
+            # like "ADVAGEN BIOTECH LTDA"), so their org_type stays
+            # NULL.  The product analyst has accepted blank cells as
+            # acceptable for the slide-in Developers table.
+            #
+            # If a future feature needs to aggregate by org_type or
+            # join to an authoritative organisation profile, replace
+            # this name-keyed shortcut with an accountid-keyed
+            # outrigger to dim_organization.  See the working spec at
+            # docs/superpowers/specs/2026-05-22-dim-developer-org-type-design.md
+            # while it still exists, or follow the four-step migration
+            # note that the comment in developers.py preserves.
+            "enrich_from": {
+                "table": "vin_developers",
+                "match_target": "org_name",
+                "attach": {"org_type": "org_type"},
+            },
         },
         "developer_name": "DELIMITED_VALUE",  # Each parsed value becomes a row
+        "org_type": "ENRICHED",  # Attached via _special.enrich_from
     },
     "dim_age_group": {
         "_source_table": None,
