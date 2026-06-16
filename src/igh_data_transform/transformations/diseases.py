@@ -181,6 +181,36 @@ def transform_diseases(
         mask = has_dash & suffix_matches_secondary
         df.loc[mask, "disease_filter"] = parent_candidate[mask]
 
+    # =========================================================
+    # Display label (single source of truth)
+    # =========================================================
+    #
+    # The portal prints ONE disease label in tables, slide-ins and the
+    # per-column table filter. The agreed rule:
+    #   * default       -> the secondary disease (COVID-19, Lassa fever,
+    #                       Gonorrhea, …);
+    #   * no secondary  -> the primary disease group (Tuberculosis,
+    #                       Buruli ulcer);
+    #   * Malaria (the  -> "<primary> – <secondary>", because the strains
+    #     only outlier)     (P. falciparum, P. vivax) never stand alone.
+    # Computing it here keeps the rule in one tested place; downstream
+    # (Gold, GraphQL, the React tables/slide-ins) just passes it through.
+    # Both inputs are already normalized above, so "no secondary" is
+    # exactly `secondary_disease_name IS NULL` here.
+    if "disease_filter" in df.columns and "secondary_disease_name" in df.columns:
+        primary = df["disease_filter"]
+        secondary = df["secondary_disease_name"]
+        has_secondary = secondary.notna()
+
+        # Default branch: the secondary when present, else the primary group.
+        label = secondary.where(has_secondary, primary)
+
+        # Malaria outlier: prefix the primary so the strain never stands alone.
+        malaria = has_secondary & primary.eq("Malaria")
+        label = label.mask(malaria, primary.str.cat(secondary, sep=" – "))
+
+        df["disease_label"] = label
+
     cleaned_option_sets: dict[str, pd.DataFrame] = {}
 
     if option_sets and "_optionset_new_globalhealtharea" in option_sets:

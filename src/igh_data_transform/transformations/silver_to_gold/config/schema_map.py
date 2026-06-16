@@ -83,6 +83,10 @@ STAR_SCHEMA_MAP = {
         # any new joins to filter by either.
         "disease_filter": "disease_filter",
         "secondary_disease_name": "secondary_disease_name",
+        # Pre-computed canonical display label (primary/secondary/Malaria
+        # rule). Tables, slide-ins and the per-column table filter all read
+        # this so there is one definition of how a disease is named.
+        "disease_label": "disease_label",
     },
     "dim_phase": {
         "_source_table": "vin_rdstages",
