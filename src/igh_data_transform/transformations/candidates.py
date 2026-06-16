@@ -307,6 +307,16 @@ def transform_candidates(
     # 1b. Normalize text-valued pipeline columns to integer codes
     df = _normalize_pipeline_cols(df)
 
+    # 1c. Capture the strict 2025 pipeline-inclusion value before temporal
+    # expansion consumes and drops `new_includeinpipeline`. The WHO
+    # Priority page needs the *actual* 2025 value (not the forward-filled
+    # flag), so we preserve it candidate-grain under a stable name. Absent
+    # column / NaN stays NaN; the gold CASE maps NaN and "No" to 0.
+    if "new_includeinpipeline" in df.columns:
+        df["includeinpipeline_2025_raw"] = df["new_includeinpipeline"]
+    else:
+        df["includeinpipeline_2025_raw"] = None
+
     # 2. Temporal expansion (reads original bronze column names)
     df = _expand_temporal_rows(df)
 

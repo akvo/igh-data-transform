@@ -1086,6 +1086,26 @@ class TestTransformCandidates:
         # new_platform keeps its name (no prefix to strip)
         assert "new_platform" in result.columns
 
+    def test_includeinpipeline_2025_raw_preserved_at_candidate_grain(self):
+        """The raw 2025 inclusion value is captured into
+        `includeinpipeline_2025_raw` and copied onto every temporal row
+        for the candidate (not forward-filled, not dropped)."""
+        df = self._make_input_df()
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
+
+        assert "includeinpipeline_2025_raw" in result.columns
+
+        # Candidate A: bronze new_includeinpipeline == 100000000 (Yes)
+        rows_a = result[result["candidateid"] == "id-1"]
+        assert len(rows_a) >= 1
+        assert (rows_a["includeinpipeline_2025_raw"] == 100000000.0).all()
+
+        # Candidate C: bronze new_includeinpipeline == 100000001 (No) —
+        # carried verbatim, NOT coerced.
+        rows_c = result[result["candidateid"] == "id-3"]
+        assert (rows_c["includeinpipeline_2025_raw"] == 100000001.0).all()
+
     def test_ctregistrylink_synthesis_applied(self):
         """CT registry link is cleaned during transform."""
         df = self._make_input_df(
