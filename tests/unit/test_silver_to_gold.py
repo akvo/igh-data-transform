@@ -90,3 +90,15 @@ class TestStarSchemaMap:
             STAR_SCHEMA_MAP["dim_priority"]["dedicated_to_women_or_children"]
             == "OPTIONSET:crc8b_dedicatedtowomenorchildren"
         )
+
+    def test_new_include_in_pipeline_2025_is_strict_yes_only(self) -> None:
+        """`dim_candidate_core.new_include_in_pipeline_2025` is 1 only when
+        the raw 2025 value is exactly Yes (100000000); No/Pending/NULL → 0."""
+        from igh_data_transform.transformations.silver_to_gold.config.schema_map import (  # noqa: E501
+            STAR_SCHEMA_MAP,
+        )
+
+        assert (
+            STAR_SCHEMA_MAP["dim_candidate_core"]["new_include_in_pipeline_2025"]
+            == "CASE WHEN includeinpipeline_2025_raw = 100000000 THEN 1 ELSE 0 END"
+        )

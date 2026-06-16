@@ -53,6 +53,11 @@ STAR_SCHEMA_MAP = {
         "countries_approved_count": "numberofcountrieswithproductapproval",
         "countries_approved_agg": "countries_product_approved",
         "candidate_type": "CASE WHEN captype_value = 'c1746ad3-93d1-f011-bbd3-00224892cefa' THEN 'Candidate' WHEN captype_value = '545d63d9-93d1-f011-bbd3-00224892cefa' THEN 'Product' ELSE 'Other' END",
+        # Strict 2025 pipeline-inclusion flag for the WHO Priority page.
+        # 1 only when the raw 2025 `new_includeinpipeline` is exactly Yes;
+        # No, Pending, and blank all map to 0. Intentionally distinct from
+        # the forward-filled `fact_pipeline_snapshot.include_in_pipeline`.
+        "new_include_in_pipeline_2025": "CASE WHEN includeinpipeline_2025_raw = 100000000 THEN 1 ELSE 0 END",
         "indication": "indication",
         "indication_type": "OPTIONSET:indicationtype",
         "healthcare_facility_level": "OPTIONSET:healthcarefacilitylevel|vin_healthcarefacilitylevel",
