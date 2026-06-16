@@ -309,3 +309,76 @@ class TestTransformDiseases:
         # Secondary unchanged.
         assert result["secondary_disease_name"].iloc[0] == "Gonorrhea"
         assert result["secondary_disease_name"].iloc[1] == "Different"
+
+    def test_disease_label_prefers_secondary(self):
+        # Default rule: when a secondary disease exists, it is the label
+        # (the primary group is implied by context).
+        df = self._make_input_df(
+            overrides={
+                "new_diseasefilter": ["Coronaviral diseases", "Filoviral diseases"],
+                "new_secondary_diseae_choice_text": ["COVID-19", "Ebola"],
+            }
+        )
+        result, _ = transform_diseases(df)
+        assert result["disease_label"].iloc[0] == "COVID-19"
+        assert result["disease_label"].iloc[1] == "Ebola"
+
+    def test_disease_label_falls_back_to_primary_without_secondary(self):
+        # No secondary -> show the primary disease group. The sentinel
+        # "No secondary disease" has already been collapsed to NULL.
+        df = self._make_input_df(
+            overrides={
+                "new_diseasefilter": ["Tuberculosis", "Buruli ulcer"],
+                "new_secondary_diseae_choice_text": [None, "No secondary disease"],
+            }
+        )
+        result, _ = transform_diseases(df)
+        assert result["disease_label"].iloc[0] == "Tuberculosis"
+        assert result["disease_label"].iloc[1] == "Buruli ulcer"
+
+    def test_disease_label_combines_for_malaria(self):
+        # Malaria is the only outlier: its strains never stand alone, so
+        # the label is "<primary> – <secondary>" with a spaced en dash.
+        df = self._make_input_df(
+            overrides={
+                "new_diseasefilter": ["Malaria", "Malaria"],
+                "new_secondary_diseae_choice_text": ["P. falciparum", "P. vivax"],
+            }
+        )
+        result, _ = transform_diseases(df)
+        assert result["disease_label"].iloc[0] == "Malaria – P. falciparum"
+        assert result["disease_label"].iloc[1] == "Malaria – P. vivax"
+
+    def test_disease_label_for_sti_uses_secondary(self):
+        # STIs arrive parent-collapsed with the specific infection in the
+        # secondary field, so the default branch already prints it.
+        df = self._make_input_df(
+            overrides={
+                "new_diseasefilter": [
+                    "Sexually transmitted infections (STIs) - Gonorrhea",
+                    "Sexually transmitted infections (STIs)",
+                ],
+                "new_secondary_diseae_choice_text": [
+                    "Gonorrhea",
+                    "Trichomoniasis",
+                ],
+            }
+        )
+        result, _ = transform_diseases(df)
+        assert result["disease_label"].iloc[0] == "Gonorrhea"
+        assert result["disease_label"].iloc[1] == "Trichomoniasis"
+
+    def test_disease_label_is_null_when_both_inputs_missing(self):
+        # Cross-cutting "R&D for all global health areas" rows carry
+        # neither a primary filter nor a secondary -> no label. The
+        # second row keeps a secondary populated so the column survives
+        # `drop_empty_columns` (in production it always has values).
+        df = self._make_input_df(
+            overrides={
+                "new_diseasefilter": [None, "Dengue"],
+                "new_secondary_diseae_choice_text": [None, "Severe dengue"],
+            }
+        )
+        result, _ = transform_diseases(df)
+        assert pd.isna(result["disease_label"].iloc[0])
+        assert result["disease_label"].iloc[1] == "Severe dengue"

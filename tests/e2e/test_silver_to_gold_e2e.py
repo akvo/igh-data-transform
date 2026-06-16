@@ -191,6 +191,7 @@ class TestDimensionTables:
             "disease_name",
             "disease_group_name",
             "global_health_area",
+            "disease_label",
         }
         missing = expected - cols
         assert not missing, f"Missing columns: {missing}"
