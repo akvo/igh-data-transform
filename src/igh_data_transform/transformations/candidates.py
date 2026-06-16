@@ -322,7 +322,9 @@ def transform_candidates(
 
     # 3. Drop columns (temporal sources already consumed by expansion)
     df = drop_columns_by_name(df, COLUMNS_TO_DROP)
-    df = drop_empty_columns(df, preserve=["valid_to", "valid_from"])
+    df = drop_empty_columns(
+        df, preserve=["valid_to", "valid_from", "includeinpipeline_2025_raw"]
+    )
 
     # 3b. Synthesize key clinical trial link
     if "new_ctregistrylink" in df.columns:
