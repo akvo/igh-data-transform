@@ -180,7 +180,9 @@ class TestDimensionTables:
         """The strict 2025 flag exists and is strictly 0/1."""
         df = _read_table(gold_conn, "dim_candidate_core")
         assert "new_include_in_pipeline_2025" in df.columns
-        assert set(df["new_include_in_pipeline_2025"].dropna().unique()).issubset({0, 1})
+        assert set(df["new_include_in_pipeline_2025"].dropna().unique()).issubset(
+            {0, 1}
+        )
 
     # -- dim_disease --
 
