@@ -176,6 +176,14 @@ class TestDimensionTables:
             f"{offenders.unique().tolist()[:5]}"
         )
 
+    def test_dim_candidate_core_strict_2025_flag(self, gold_conn):
+        """The strict 2025 flag exists and is strictly 0/1."""
+        df = _read_table(gold_conn, "dim_candidate_core")
+        assert "new_include_in_pipeline_2025" in df.columns
+        assert set(df["new_include_in_pipeline_2025"].dropna().unique()).issubset(
+            {0, 1}
+        )
+
     # -- dim_disease --
 
     def test_dim_disease_no_null_diseaseid(self, gold_conn):

@@ -26,6 +26,10 @@ INTEGER_EXACT_NAMES = {
     "quarter",
     "enrollment_count",
     "option_code",
+    # Strict 2025 pipeline-inclusion flag: CASE WHEN evaluates to int 0/1,
+    # but the column name doesn't match any INTEGER_SUFFIXES pattern, so
+    # it must be listed here explicitly to get INTEGER affinity in SQLite.
+    "new_include_in_pipeline_2025",
 }
 
 
