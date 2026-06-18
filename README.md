@@ -145,6 +145,10 @@ The project uses UV for dependency management. Common commands:
 - **Run tests with coverage**: `uv run pytest --cov=igh_data_transform --cov-report=term-missing`
 - **Run linter**: `uv run ruff check src/ tests/`
 
+### Special Case comments
+
+Code paths that work around known defects in the upstream CRM data are marked with a `# Special Case:` comment followed by an explanation on the next line. These are intended to be temporary — once the source data is corrected, search for `Special Case` to find and remove them.
+
 ### Documentation
 
 - [Adding Transformations](docs/adding-transformations.md) - Guide for data analysts on how to add new data transformations

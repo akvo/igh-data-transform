@@ -283,6 +283,38 @@ class TestTransformDiseases:
         assert "incl_nd" not in result.columns
         assert "incl_eid" not in result.columns
 
+    def test_backfills_filoviral_disease_filter(self):
+        # Special Case: the parent-level Filoviral record arrives from the
+        # CRM with a NULL disease_filter, making its linked priority
+        # unreachable in the filter dropdown. The transform backfills it.
+        df = self._make_input_df(
+            overrides={
+                "vin_name": [
+                    "Filoviral diseases (including Ebola, Marburg) - Multiple filoviral diseases - Vaccines",
+                    "Some other disease",
+                ],
+                "new_diseasefilter": [None, "Malaria"],
+            }
+        )
+        result, _ = transform_diseases(df)
+        assert result["disease_filter"].iloc[0] == "Filoviral diseases"
+        # Other rows untouched.
+        assert result["disease_filter"].iloc[1] == "Malaria"
+
+    def test_filoviral_backfill_does_not_overwrite_existing_filter(self):
+        # When a Filoviral row already has a disease_filter, leave it alone.
+        df = self._make_input_df(
+            overrides={
+                "vin_name": [
+                    "Filoviral diseases (including Ebola, Marburg) - Ebola - Vaccines",
+                    "Other",
+                ],
+                "new_diseasefilter": ["Filoviral diseases", None],
+            }
+        )
+        result, _ = transform_diseases(df)
+        assert result["disease_filter"].iloc[0] == "Filoviral diseases"
+
     def test_normalizes_sti_primary_when_suffix_matches_secondary(self):
         # Three Bronze rows store new_diseasefilter as a parent-child
         # concatenation. Collapse only when the suffix exactly matches
