@@ -24,11 +24,11 @@ jobs:
       - name: Install the project
         run: uv sync --locked --all-extras --dev
 
-      - name: Run Ruff (linting and formatting check)
-        run: uv run ruff check src/ tests/
+      - name: Run Ruff (linting)
+        run: bash scripts/qa.sh lint
 
-      - name: Run Ruff (formatting check only)
-        run: uv run ruff format --check src/ tests/
+      - name: Run Ruff (formatting check)
+        run: bash scripts/qa.sh format
 
       - name: Run tests
-        run: uv run pytest --cov=igh_data_transform --cov-report=term-missing
+        run: bash scripts/qa.sh test

@@ -139,11 +139,14 @@ The project uses UV for dependency management. Common commands:
 - **Add a dev dependency**: `uv add --dev <package-name>`
 - **Update dependencies**: `uv sync`
 - **Run commands without activating venv**: `uv run <command>`
-- **Run unit tests**: `uv run pytest`
-- **Run e2e tests**: `E2E_BRONZE_DB_PATH=/path/to/bronze.db uv run pytest --e2e -v`
-- **Run all tests**: `E2E_BRONZE_DB_PATH=/path/to/bronze.db uv run pytest --all -v`
-- **Run tests with coverage**: `uv run pytest --cov=igh_data_transform --cov-report=term-missing`
-- **Run linter**: `uv run ruff check src/ tests/`
+- **Run all QA checks** (lint + format + tests): `bash scripts/qa.sh`
+- **Run a single QA step**: `bash scripts/qa.sh lint`, `bash scripts/qa.sh format`, `bash scripts/qa.sh test`
+- **Pass extra pytest flags**: `bash scripts/qa.sh test -v --all`
+- **Run e2e tests**: `E2E_BRONZE_DB_PATH=/path/to/bronze.db bash scripts/qa.sh test --e2e -v`
+
+The same `scripts/qa.sh` is used by the GitHub Actions CI workflow, so local and CI checks always match.
+
+If `data/dataverse_complete_raw.db` exists (the default output of `sync-and-run-etl.sh`), e2e tests are included automatically. You can also set `E2E_BRONZE_DB_PATH` explicitly to point at a different Bronze DB.
 
 ### Special Case comments
 
