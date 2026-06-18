@@ -163,12 +163,9 @@ def transform_diseases(
     # unreachable. Backfill the filter to "Filoviral diseases" so it groups with
     # its siblings. Remove this once the CRM source data is corrected.
     if "disease_filter" in df.columns and "name" in df.columns:
-        filo_mask = (
-            df["name"].str.strip().str.startswith(
-                "Filoviral diseases (including Ebola, Marburg)", na=False
-            )
-            & (df["disease_filter"].isna() | (df["disease_filter"] == ""))
-        )
+        filo_mask = df["name"].str.strip().str.startswith(
+            "Filoviral diseases (including Ebola, Marburg)", na=False
+        ) & (df["disease_filter"].isna() | (df["disease_filter"] == ""))
         df.loc[filo_mask, "disease_filter"] = "Filoviral diseases"
 
     # STI primary normalization (self-validating).
