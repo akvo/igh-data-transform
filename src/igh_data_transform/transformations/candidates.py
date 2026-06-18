@@ -190,6 +190,7 @@ def _normalize_pipeline_cols(df: pd.DataFrame) -> pd.DataFrame:
         if col in df.columns:
             df[col] = df[col].replace(_PIPELINE_CODE_NORMALIZATION)
 
+    # Special Case:
     # 2019 candidates were not independently reviewed in 2021 — preserve
     # their pipeline inclusion by overriding 2021 "No" when 2019 is "Yes".
     _2019_col = "vin_2019pcrpipelineinclusion"
