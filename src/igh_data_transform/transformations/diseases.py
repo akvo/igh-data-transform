@@ -168,6 +168,22 @@ def transform_diseases(
         ) & (df["disease_filter"].isna() | (df["disease_filter"] == ""))
         df.loc[filo_mask, "disease_filter"] = "Filoviral diseases"
 
+        # Special Case: Backfill secondary_disease_name for "Multiple filoviral diseases" rows.
+        # These rows have disease_filter = "Filoviral diseases" (just backfilled or
+        # already set) but NULL secondary, making them collapse into the parent in
+        # the hierarchy query. Only target rows whose name contains the substring.
+        if "secondary_disease_name" in df.columns:
+            multi_filo_mask = (
+                df["disease_filter"].eq("Filoviral diseases")
+                & df["secondary_disease_name"].isna()
+                & df["name"].str.contains(
+                    "Multiple filoviral diseases", na=False
+                )
+            )
+            df.loc[multi_filo_mask, "secondary_disease_name"] = (
+                "Multiple filoviral diseases"
+            )
+
     # STI primary normalization (self-validating).
     #
     # Three rows in the current Bronze sample store the primary as

@@ -414,3 +414,34 @@ class TestTransformDiseases:
         result, _ = transform_diseases(df)
         assert pd.isna(result["disease_label"].iloc[0])
         assert result["disease_label"].iloc[1] == "Severe dengue"
+
+    def test_backfills_secondary_for_multiple_filoviral_diseases(self):
+        # "Multiple filoviral diseases" rows have NULL secondary, making them
+        # collapse into the parent in the hierarchy query. The transform
+        # backfills secondary_disease_name so they appear as a distinct child.
+        df = self._make_input_df(
+            overrides={
+                "vin_name": [
+                    "Filoviral diseases (including Ebola, Marburg)"
+                    " - Multiple filoviral diseases - Vaccines",
+                    "Filoviral diseases (including Ebola, Marburg)"
+                    " - Ebola - Vaccines",
+                ],
+                "new_diseasefilter": [None, "Filoviral diseases"],
+                # Row 1 keeps a non-null secondary so the column survives
+                # drop_empty_columns (in production other rows populate it).
+                "new_secondary_diseae_choice_text": [None, "Ebola"],
+            }
+        )
+        result, _ = transform_diseases(df)
+        # Row 0: name contains "Multiple filoviral diseases" -> backfilled.
+        assert (
+            result["secondary_disease_name"].iloc[0]
+            == "Multiple filoviral diseases"
+        )
+        # Row 1: already has a secondary ("Ebola") -> not overwritten.
+        assert result["secondary_disease_name"].iloc[1] == "Ebola"
+        # disease_label should reflect the backfilled secondary.
+        assert (
+            result["disease_label"].iloc[0] == "Multiple filoviral diseases"
+        )
