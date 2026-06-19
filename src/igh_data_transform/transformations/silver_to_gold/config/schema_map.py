@@ -279,7 +279,7 @@ STAR_SCHEMA_MAP = {
         "locations": "locations",
         "age_groups": "age",
         "study_type": "studytype",
-        "source_text": "vin_source",
+        "source_text": "source_link",
         "description": "description",
         "ct_results_status": "OPTIONSET:ctresultsstatus|vin_ctresultsstatus",
         "end_date_key": "FK:dim_date.full_date|EXTRACT_DATE:enddate",

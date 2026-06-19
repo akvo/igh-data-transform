@@ -9,6 +9,7 @@ from igh_data_transform.transformations.clinical_trials import (
     _synthesize_age_groups,
     _synthesize_gender,
     _synthesize_phase,
+    build_source_link,
     transform_clinical_trials,
 )
 
@@ -564,3 +565,110 @@ class TestTransformClinicalTrials:
         result, cleaned = transform_clinical_trials(df, option_sets=None)
         assert isinstance(result, pd.DataFrame)
         assert len(cleaned) == 0
+
+
+class TestTransformAddsSourceLink:
+    def test_source_link_prefers_registration_id_over_stale_source(self):
+        df = pd.DataFrame(
+            {
+                "vin_name": ["NCT04406727", "CTRI/2020/02/023129", "N/A"],
+                "vin_source": [
+                    # Stale shared URL from a bulk import — must be overridden.
+                    "https://clinicaltrials.gov/study/NCT04882514",
+                    "http://www.ctri.nic.in/Clinicaltrials/pmaindet2.php?trialid=9948",
+                    "https://example.org/fallback",
+                ],
+            }
+        )
+
+        out, _ = transform_clinical_trials(df)
+
+        links = out["source_link"].tolist()
+        assert links[0] == "https://clinicaltrials.gov/study/NCT04406727"
+        assert (
+            links[1] == "https://trialsearch.who.int/?TrialID=CTRI%2F2020%2F02%2F023129"
+        )
+        assert links[2] == "https://example.org/fallback"
+
+
+class TestBuildSourceLink:
+    """Per-trial source link construction from the registration id."""
+
+    @pytest.mark.parametrize(
+        "name,expected",
+        [
+            # Native registry templates (id embedded in the registry page).
+            ("NCT04882514", "https://clinicaltrials.gov/study/NCT04882514"),
+            ("ISRCTN71619711", "https://www.isrctn.com/ISRCTN71619711"),
+            ("ACTRN12615000264583", "https://anzctr.org.au/ACTRN12615000264583.aspx"),
+            (
+                "TCTR20210826004",
+                "https://www.thaiclinicaltrials.org/show/TCTR20210826004",
+            ),
+            ("DRKS00033539", "https://drks.de/search/en/trial/DRKS00033539"),
+            (
+                "jRCTs021190020",
+                "https://jrct.niph.go.jp/en-latest-detail/jRCTs021190020",
+            ),
+            ("SLCTR/2016/015", "https://slctr.lk/trials/slctr-2016-015"),
+            (
+                "2018-000283-28",
+                "https://www.clinicaltrialsregister.eu/ctr-search/search"
+                "?query=eudract_number:2018-000283-28",
+            ),
+            (
+                "2024-518527-29-00",
+                "https://euclinicaltrials.eu/search-for-clinical-trials/"
+                "?lang=en&EUCT=2024-518527-29-00",
+            ),
+        ],
+    )
+    def test_native_registry_templates(self, name, expected):
+        # vin_source is deliberately wrong/stale; vin_name must win.
+        assert (
+            build_source_link(name, "https://clinicaltrials.gov/study/NCT00000000")
+            == expected
+        )
+
+    @pytest.mark.parametrize(
+        "name,expected_id",
+        [
+            ("ChiCTR2500096097", "ChiCTR2500096097"),
+            ("CTRI/2020/02/023129", "CTRI%2F2020%2F02%2F023129"),
+            ("IRCT20240912063018N1", "IRCT20240912063018N1"),
+            ("PACTR202408671139802", "PACTR202408671139802"),
+            ("NL8933", "NL8933"),
+            ("NTR4751", "NTR4751"),
+        ],
+    )
+    def test_who_ictrp_resolver_for_non_deep_linkable_registries(
+        self, name, expected_id
+    ):
+        assert (
+            build_source_link(name, None)
+            == f"https://trialsearch.who.int/?TrialID={expected_id}"
+        )
+
+    def test_unrecognized_name_falls_back_to_source_url(self):
+        assert (
+            build_source_link("N/A", "https://example.org/trial/123")
+            == "https://example.org/trial/123"
+        )
+
+    def test_trailing_whitespace_is_trimmed(self):
+        assert build_source_link("CTRI/2020/02/023129 ", None) == (
+            "https://trialsearch.who.int/?TrialID=CTRI%2F2020%2F02%2F023129"
+        )
+
+    @pytest.mark.parametrize(
+        "name,source",
+        [
+            ("Unknown", "CT.gov"),  # junk name, non-URL source
+            ("N/A", None),  # junk name, no source
+            ("", ""),  # both blank
+            (None, None),  # both missing
+            (np.nan, np.nan),  # pandas NaN cells
+        ],
+    )
+    def test_no_usable_link_returns_none(self, name, source):
+        assert build_source_link(name, source) is None
