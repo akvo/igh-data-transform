@@ -585,7 +585,9 @@ class TestTransformAddsSourceLink:
 
         links = out["source_link"].tolist()
         assert links[0] == "https://clinicaltrials.gov/study/NCT04406727"
-        assert links[1] == "https://trialsearch.who.int/?TrialID=CTRI%2F2020%2F02%2F023129"
+        assert (
+            links[1] == "https://trialsearch.who.int/?TrialID=CTRI%2F2020%2F02%2F023129"
+        )
         assert links[2] == "https://example.org/fallback"
 
 
@@ -599,9 +601,15 @@ class TestBuildSourceLink:
             ("NCT04882514", "https://clinicaltrials.gov/study/NCT04882514"),
             ("ISRCTN71619711", "https://www.isrctn.com/ISRCTN71619711"),
             ("ACTRN12615000264583", "https://anzctr.org.au/ACTRN12615000264583.aspx"),
-            ("TCTR20210826004", "https://www.thaiclinicaltrials.org/show/TCTR20210826004"),
+            (
+                "TCTR20210826004",
+                "https://www.thaiclinicaltrials.org/show/TCTR20210826004",
+            ),
             ("DRKS00033539", "https://drks.de/search/en/trial/DRKS00033539"),
-            ("jRCTs021190020", "https://jrct.niph.go.jp/en-latest-detail/jRCTs021190020"),
+            (
+                "jRCTs021190020",
+                "https://jrct.niph.go.jp/en-latest-detail/jRCTs021190020",
+            ),
             ("SLCTR/2016/015", "https://slctr.lk/trials/slctr-2016-015"),
             (
                 "2018-000283-28",
@@ -617,7 +625,10 @@ class TestBuildSourceLink:
     )
     def test_native_registry_templates(self, name, expected):
         # vin_source is deliberately wrong/stale; vin_name must win.
-        assert build_source_link(name, "https://clinicaltrials.gov/study/NCT00000000") == expected
+        assert (
+            build_source_link(name, "https://clinicaltrials.gov/study/NCT00000000")
+            == expected
+        )
 
     @pytest.mark.parametrize(
         "name,expected_id",
@@ -630,11 +641,19 @@ class TestBuildSourceLink:
             ("NTR4751", "NTR4751"),
         ],
     )
-    def test_who_ictrp_resolver_for_non_deep_linkable_registries(self, name, expected_id):
-        assert build_source_link(name, None) == f"https://trialsearch.who.int/?TrialID={expected_id}"
+    def test_who_ictrp_resolver_for_non_deep_linkable_registries(
+        self, name, expected_id
+    ):
+        assert (
+            build_source_link(name, None)
+            == f"https://trialsearch.who.int/?TrialID={expected_id}"
+        )
 
     def test_unrecognized_name_falls_back_to_source_url(self):
-        assert build_source_link("N/A", "https://example.org/trial/123") == "https://example.org/trial/123"
+        assert (
+            build_source_link("N/A", "https://example.org/trial/123")
+            == "https://example.org/trial/123"
+        )
 
     def test_trailing_whitespace_is_trimmed(self):
         assert build_source_link("CTRI/2020/02/023129 ", None) == (
@@ -644,11 +663,11 @@ class TestBuildSourceLink:
     @pytest.mark.parametrize(
         "name,source",
         [
-            ("Unknown", "CT.gov"),     # junk name, non-URL source
-            ("N/A", None),             # junk name, no source
-            ("", ""),                  # both blank
-            (None, None),              # both missing
-            (np.nan, np.nan),          # pandas NaN cells
+            ("Unknown", "CT.gov"),  # junk name, non-URL source
+            ("N/A", None),  # junk name, no source
+            ("", ""),  # both blank
+            (None, None),  # both missing
+            (np.nan, np.nan),  # pandas NaN cells
         ],
     )
     def test_no_usable_link_returns_none(self, name, source):

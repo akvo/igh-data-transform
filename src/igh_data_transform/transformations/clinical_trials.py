@@ -150,10 +150,7 @@ def _eudract_classic(id_):
 
 
 def _euct(id_):
-    return (
-        "https://euclinicaltrials.eu/search-for-clinical-trials/"
-        f"?lang=en&EUCT={id_}"
-    )
+    return f"https://euclinicaltrials.eu/search-for-clinical-trials/?lang=en&EUCT={id_}"
 
 
 # Ordered (pattern, builder) pairs. Patterns are mutually exclusive by prefix,
@@ -206,7 +203,9 @@ def build_source_link(name, source):
         # 2. Recognized registry without a derivable deep link -> WHO ICTRP.
         for pattern in _WHO_RESOLVER_REGISTRIES:
             if pattern.match(candidate):
-                return f"https://trialsearch.who.int/?TrialID={quote(candidate, safe='')}"
+                return (
+                    f"https://trialsearch.who.int/?TrialID={quote(candidate, safe='')}"
+                )
 
     # 3. Unrecognized id: keep the raw source only if it is already a URL.
     src = _normalize(source)
