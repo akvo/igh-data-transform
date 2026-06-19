@@ -154,6 +154,20 @@ def transform_diseases(
             other=pd.NA,
         )
 
+    # Special Case: Filoviral diseases parent-level record missing disease_filter.
+    # Bronze disease "Filoviral diseases (including Ebola, Marburg)" (the parent
+    # umbrella record, diseaseid 13b20daf-d5a0-ec11-b400-002248185df1) has a NULL
+    # new_diseasefilter in the CRM source. The priority "TPP: multivalent filovirus
+    # vaccines" is linked to this record. Without a disease_filter the disease
+    # cannot appear in the hierarchical filter dropdown, making the priority
+    # unreachable. Backfill the filter to "Filoviral diseases" so it groups with
+    # its siblings. Remove this once the CRM source data is corrected.
+    if "disease_filter" in df.columns and "name" in df.columns:
+        filo_mask = df["name"].str.strip().str.startswith(
+            "Filoviral diseases (including Ebola, Marburg)", na=False
+        ) & (df["disease_filter"].isna() | (df["disease_filter"] == ""))
+        df.loc[filo_mask, "disease_filter"] = "Filoviral diseases"
+
     # STI primary normalization (self-validating).
     #
     # Three rows in the current Bronze sample store the primary as

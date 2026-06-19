@@ -141,6 +141,25 @@ Common UV commands:
 - **Run commands without activating venv**: `uv run <command>`
 - **Run Python scripts**: `uv run python <script.py>`
 
+### QA (Lint + Format + Tests)
+
+```bash
+# Run all QA checks (linting, format check, unit tests with coverage)
+bash scripts/qa.sh
+
+# Run a single step
+bash scripts/qa.sh lint
+bash scripts/qa.sh format
+bash scripts/qa.sh test
+
+# Pass extra pytest flags
+bash scripts/qa.sh test -v --all
+```
+
+`scripts/qa.sh` is the single source of truth for QA steps — the GitHub Actions workflow calls the same script with individual step arguments, so local and CI checks cannot diverge.
+
+When `data/dataverse_complete_raw.db` exists (the default output of `sync-and-run-etl.sh`), the script automatically sets `E2E_BRONZE_DB_PATH` and runs e2e tests with `--all`. On CI (where no Bronze DB is present), only unit tests run.
+
 ### Running Tests
 
 ```bash
