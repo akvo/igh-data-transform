@@ -1,5 +1,8 @@
 """Clinical trials table transformation (vin_clinicaltrials)."""
 
+import re
+from urllib.parse import quote
+
 import pandas as pd
 
 from igh_data_transform.transformations.cleanup import (
@@ -93,6 +96,125 @@ _CT_STATUS_CODES_TO_REMOVE = {
     100000006,
     909670003,
 }
+
+
+# =========================================================
+# Clinical trial source-link construction
+# =========================================================
+#
+# Each trial's authoritative registration id lives in ``vin_name`` (in
+# registry-native format). The raw ``vin_source`` column is unreliable —
+# bulk-import batches share a single constant URL, and there are blanks and
+# literal "CT.gov"/"N/A" values — so we rebuild the source link from
+# ``vin_name`` whenever we recognize the registry, and only fall back to
+# ``vin_source`` when the registration id is unrecognized.
+
+
+# Registries whose public trial page embeds the registration id verbatim (or
+# via a simple slug). Each builder receives the trimmed id.
+def _nct(id_):
+    return f"https://clinicaltrials.gov/study/{id_}"
+
+
+def _isrctn(id_):
+    return f"https://www.isrctn.com/{id_}"
+
+
+def _actrn(id_):
+    return f"https://anzctr.org.au/{id_}.aspx"
+
+
+def _tctr(id_):
+    return f"https://www.thaiclinicaltrials.org/show/{id_}"
+
+
+def _drks(id_):
+    return f"https://drks.de/search/en/trial/{id_}"
+
+
+def _jrct(id_):
+    return f"https://jrct.niph.go.jp/en-latest-detail/{id_}"
+
+
+def _slctr(id_):
+    # SLCTR/2016/015 -> slctr-2016-015
+    slug = id_.lower().replace("/", "-")
+    return f"https://slctr.lk/trials/{slug}"
+
+
+def _eudract_classic(id_):
+    return (
+        "https://www.clinicaltrialsregister.eu/ctr-search/search"
+        f"?query=eudract_number:{id_}"
+    )
+
+
+def _euct(id_):
+    return (
+        "https://euclinicaltrials.eu/search-for-clinical-trials/"
+        f"?lang=en&EUCT={id_}"
+    )
+
+
+# Ordered (pattern, builder) pairs. Patterns are mutually exclusive by prefix,
+# so order is not significant, but EU CT (4 groups) must be distinguished from
+# classic EudraCT (3 groups) by the trailing "-NN".
+_NATIVE_REGISTRIES = [
+    (re.compile(r"^NCT\d+$", re.I), _nct),
+    (re.compile(r"^ISRCTN\d+$", re.I), _isrctn),
+    (re.compile(r"^ACTRN\d+$", re.I), _actrn),
+    (re.compile(r"^TCTR\d+$", re.I), _tctr),
+    (re.compile(r"^DRKS\d+$", re.I), _drks),
+    (re.compile(r"^jRCT\w+$", re.I), _jrct),
+    (re.compile(r"^SLCTR/\S+$", re.I), _slctr),
+    (re.compile(r"^\d{4}-\d{6}-\d{2}$"), _eudract_classic),
+    (re.compile(r"^\d{4}-\d{6}-\d{2}-\d{2}$"), _euct),
+]
+
+# Registries whose public URL uses an internal database id that cannot be
+# derived from the registration number. The WHO ICTRP portal resolves any
+# primary-registry id, so we route these through it.
+_WHO_RESOLVER_REGISTRIES = [
+    re.compile(r"^ChiCTR\S+$", re.I),
+    re.compile(r"^CTRI/\S+$", re.I),
+    re.compile(r"^IRCT\w+$", re.I),
+    re.compile(r"^PACTR\d+$", re.I),
+    re.compile(r"^(?:NTR|NL)\d+$", re.I),
+]
+
+
+def _normalize(value) -> str:
+    """Trim a raw cell to a string; ``None``/pandas ``NaN`` become ``""``."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return ""
+    return str(value).strip()
+
+
+def build_source_link(name, source):
+    """Return the canonical per-trial source URL, or ``None`` if unavailable.
+
+    Prefers a link derived from ``name`` (the trial's authoritative
+    registration id); ``source`` is used only when ``name`` is unrecognized.
+    """
+    candidate = _normalize(name)
+
+    if candidate:
+        # 1. Native registry URL (id embedded in the registry page).
+        for pattern, build in _NATIVE_REGISTRIES:
+            if pattern.match(candidate):
+                return build(candidate)
+        # 2. Recognized registry without a derivable deep link -> WHO ICTRP.
+        for pattern in _WHO_RESOLVER_REGISTRIES:
+            if pattern.match(candidate):
+                return f"https://trialsearch.who.int/?TrialID={quote(candidate, safe='')}"
+
+    # 3. Unrecognized id: keep the raw source only if it is already a URL.
+    src = _normalize(source)
+    if src.lower().startswith(("http://", "https://")):
+        return src
+
+    # 4. Nothing usable.
+    return None
 
 
 def _synthesize_phase(val) -> str:
