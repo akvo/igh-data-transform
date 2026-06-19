@@ -567,6 +567,28 @@ class TestTransformClinicalTrials:
         assert len(cleaned) == 0
 
 
+class TestTransformAddsSourceLink:
+    def test_source_link_prefers_registration_id_over_stale_source(self):
+        df = pd.DataFrame(
+            {
+                "vin_name": ["NCT04406727", "CTRI/2020/02/023129", "N/A"],
+                "vin_source": [
+                    # Stale shared URL from a bulk import — must be overridden.
+                    "https://clinicaltrials.gov/study/NCT04882514",
+                    "http://www.ctri.nic.in/Clinicaltrials/pmaindet2.php?trialid=9948",
+                    "https://example.org/fallback",
+                ],
+            }
+        )
+
+        out, _ = transform_clinical_trials(df)
+
+        links = out["source_link"].tolist()
+        assert links[0] == "https://clinicaltrials.gov/study/NCT04406727"
+        assert links[1] == "https://trialsearch.who.int/?TrialID=CTRI%2F2020%2F02%2F023129"
+        assert links[2] == "https://example.org/fallback"
+
+
 class TestBuildSourceLink:
     """Per-trial source link construction from the registration id."""
 

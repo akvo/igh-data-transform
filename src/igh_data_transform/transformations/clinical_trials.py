@@ -411,6 +411,21 @@ def transform_clinical_trials(
     """
     df = df.copy()
 
+    # Build a reliable per-trial source link from the authoritative
+    # registration id (vin_name), before the raw columns are renamed/dropped.
+    # vin_source is consulted only as a fallback inside build_source_link.
+    names = (
+        df["vin_name"]
+        if "vin_name" in df.columns
+        else pd.Series([None] * len(df), index=df.index)
+    )
+    sources = (
+        df["vin_source"]
+        if "vin_source" in df.columns
+        else pd.Series([None] * len(df), index=df.index)
+    )
+    df["source_link"] = [build_source_link(n, s) for n, s in zip(names, sources)]
+
     # Strip whitespace from age column before synthesis
     if "new_age" in df.columns:
         df["new_age"] = df["new_age"].str.strip()
