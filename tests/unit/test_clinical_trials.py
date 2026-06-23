@@ -560,6 +560,17 @@ class TestTransformClinicalTrials:
         result, _ = transform_clinical_trials(df)
         assert len(result) == 2
 
+    def test_filters_inactive_records(self):
+        df = self._make_input_df({"statecode": [0, 1]})
+        result, _ = transform_clinical_trials(df)
+        assert len(result) == 1
+        assert result.iloc[0]["clinicaltrialid"] == "ct-1"
+
+    def test_filters_all_inactive_records(self):
+        df = self._make_input_df({"statecode": [1, 1]})
+        result, _ = transform_clinical_trials(df)
+        assert len(result) == 0
+
     def test_works_when_option_sets_is_none(self):
         df = self._make_input_df()
         result, cleaned = transform_clinical_trials(df, option_sets=None)
