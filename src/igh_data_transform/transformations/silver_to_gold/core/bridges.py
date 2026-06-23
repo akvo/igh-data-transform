@@ -72,8 +72,7 @@ def transform_bridge(transformer: Transformer, table_name: str) -> list[dict]:
         pipeline_candidate_keys = transformer.get_pipeline_candidate_keys()
         before = len(transformed)
         transformed = [
-            r for r in transformed
-            if r.get("candidate_key") in pipeline_candidate_keys
+            r for r in transformed if r.get("candidate_key") in pipeline_candidate_keys
         ]
         logger.info(
             f"bridge_candidate_priority: filtered {before - len(transformed)} "
