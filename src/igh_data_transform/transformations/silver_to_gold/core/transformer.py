@@ -446,6 +446,7 @@ class Transformer:
 
     def build_candidate_cross_refs(self, pipeline_data: list[dict]) -> None:
         """Build candidate_key → disease_key/product_key maps from loaded pipeline snapshots."""
+        pipeline_candidate_keys: set[int] = set()
         for target_col in ("disease_key", "product_key"):
             self._candidate_cross_refs[target_col] = {}
             for row in pipeline_data:
@@ -453,6 +454,16 @@ class Transformer:
                 val = row.get(target_col)
                 if ck is not None:
                     self._candidate_cross_refs[target_col][ck] = val
+                    if (
+                        row.get("is_active_flag") == 1
+                        and row.get("include_in_pipeline") == 1
+                    ):
+                        pipeline_candidate_keys.add(ck)
+        self._pipeline_candidate_keys = pipeline_candidate_keys
+
+    def get_pipeline_candidate_keys(self) -> set[int]:
+        """Return candidate_keys present in fact_pipeline_snapshot with include_in_pipeline=1."""
+        return getattr(self, "_pipeline_candidate_keys", set())
 
     def _resolve_fk_via_candidate(self, expr: str, new_row: dict) -> int | None:
         """Resolve FK by looking up the candidate's disease_key or product_key."""

@@ -67,6 +67,19 @@ def transform_bridge(transformer: Transformer, table_name: str) -> list[dict]:
         if all(v is not None for k, v in new_row.items() if k.endswith("_key")):
             transformed.append(new_row)
 
+    # Gate bridge_candidate_priority to pipeline-included candidates only.
+    if table_name == "bridge_candidate_priority" and transformed:
+        pipeline_candidate_keys = transformer.get_pipeline_candidate_keys()
+        before = len(transformed)
+        transformed = [
+            r for r in transformed
+            if r.get("candidate_key") in pipeline_candidate_keys
+        ]
+        logger.info(
+            f"bridge_candidate_priority: filtered {before - len(transformed)} "
+            f"non-pipeline rows ({len(transformed)} remaining)"
+        )
+
     logger.info(f"Transformed {len(transformed)} rows for {table_name}")
     return transformed
 
