@@ -410,6 +410,10 @@ def transform_clinical_trials(
     """
     df = df.copy()
 
+    # Filter deleted/inactive records (statecode != 0)
+    if "statecode" in df.columns:
+        df = df[df["statecode"] == 0].copy()
+
     # Build a reliable per-trial source link from the authoritative
     # registration id (vin_name), before the raw columns are renamed/dropped.
     # vin_source is consulted only as a fallback inside build_source_link.
