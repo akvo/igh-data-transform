@@ -678,6 +678,32 @@ class TestExpandTemporalRows:
         assert list(result["valid_from"]) == ["2026-01-01"]
         assert pd.isna(result.loc[0, "valid_to"])
 
+    def test_candidate_created_in_2026_gets_stage_only_2025_row(self):
+        """All 244 candidates Dataverse created during 2026 carry a rolling
+        R&D stage, and the stage series is pinned at 2025, so they DO get a
+        2025 boundary. What makes that harmless is that it carries no
+        inclusion value — every portal query filters `include_in_pipeline`,
+        so a NULL-inclusion row is invisible."""
+        df = pd.DataFrame(
+            {
+                "vin_candidateid": ["cand-new"],
+                "vin_name": ["CandNew"],
+                "_resolved_rdstage_current": ["Phase I"],
+                "new_includeinpipeline2025": [None],
+                "new_includeinpipeline": [100000000],
+                "vin_product": ["Drugs"],
+            }
+        )
+        result = (
+            _expand_temporal_rows(df)
+            .sort_values("valid_from")
+            .reset_index(drop=True)
+        )
+        assert list(result["valid_from"]) == ["2025-01-01", "2026-01-01"]
+        assert pd.isna(result.loc[0, "includeinpipeline"])
+        assert result.loc[0, "new_currentrdstage"] == "Phase I"
+        assert result.loc[1, "includeinpipeline"] == 100000000
+
     def test_rolling_stage_forward_fills_into_2026(self):
         """R&D stage has no frozen 2025 archive, so the rolling stage sits at
         the 2025 boundary and the cross-group forward-fill carries it into
