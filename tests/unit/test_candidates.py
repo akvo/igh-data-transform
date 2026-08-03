@@ -695,9 +695,7 @@ class TestExpandTemporalRows:
             }
         )
         result = (
-            _expand_temporal_rows(df)
-            .sort_values("valid_from")
-            .reset_index(drop=True)
+            _expand_temporal_rows(df).sort_values("valid_from").reset_index(drop=True)
         )
         assert list(result["valid_from"]) == ["2025-01-01", "2026-01-01"]
         assert pd.isna(result.loc[0, "includeinpipeline"])
