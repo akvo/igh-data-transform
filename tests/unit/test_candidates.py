@@ -180,7 +180,7 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": ["Phase I"],
                 "new_2024currentrdstage": ["Phase II"],
                 "_resolved_rdstage_current": ["Phase III"],
-                "new_includeinpipeline": [100000000],
+                "new_includeinpipeline2025": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -201,7 +201,7 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": [None],
                 "new_2024currentrdstage": ["Phase II"],
                 "_resolved_rdstage_current": ["Phase III"],
-                "new_includeinpipeline": [100000000],
+                "new_includeinpipeline2025": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -217,7 +217,7 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": [None],
                 "new_2024currentrdstage": [None],
                 "_resolved_rdstage_current": ["Phase III"],
-                "new_includeinpipeline": [100000000],
+                "new_includeinpipeline2025": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -233,7 +233,7 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": ["Discovery"],
                 "new_2024currentrdstage": ["Preclinical"],
                 "_resolved_rdstage_current": ["Phase I"],
-                "new_includeinpipeline": [100000000],
+                "new_includeinpipeline2025": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -254,7 +254,7 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": ["Phase I"],
                 "new_2024currentrdstage": ["Phase II"],
                 "_resolved_rdstage_current": ["Phase III"],
-                "new_includeinpipeline": [100000000],
+                "new_includeinpipeline2025": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -281,7 +281,7 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": [None],
                 "new_2024currentrdstage": ["Phase I"],
                 "_resolved_rdstage_current": [None],
-                "new_includeinpipeline": [100000000],
+                "new_includeinpipeline2025": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -305,7 +305,7 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": [None],
                 "new_2024currentrdstage": [None],
                 "_resolved_rdstage_current": ["Phase III"],
-                "new_includeinpipeline": [100000000],
+                "new_includeinpipeline2025": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -322,7 +322,7 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": ["Phase I"],
                 "new_2024currentrdstage": ["Phase II"],
                 "_resolved_rdstage_current": ["Phase III"],
-                "new_includeinpipeline": [100000000],
+                "new_includeinpipeline2025": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -348,7 +348,7 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": ["Phase I"],
                 "new_2024currentrdstage": [None],
                 "_resolved_rdstage_current": ["Phase III"],
-                "new_includeinpipeline": [100000000],
+                "new_includeinpipeline2025": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -365,7 +365,7 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": ["Phase I", "Discovery"],
                 "new_2024currentrdstage": ["Phase II", None],
                 "_resolved_rdstage_current": [None, "Preclinical"],
-                "new_includeinpipeline": [100000000, 100000002],
+                "new_includeinpipeline2025": [100000000, 100000002],
                 "vin_product": ["Drugs", "Vaccines"],
             }
         )
@@ -386,7 +386,7 @@ class TestExpandTemporalRows:
                 "new_2023currentrdstage": ["Phase I", "Discovery"],
                 "new_2024currentrdstage": ["Phase II", None],
                 "_resolved_rdstage_current": [None, "Preclinical"],
-                "new_includeinpipeline": [100000000, 100000002],
+                "new_includeinpipeline2025": [100000000, 100000002],
                 "vin_product": ["Drugs", "Vaccines"],
             }
         )
@@ -411,7 +411,7 @@ class TestExpandTemporalRows:
                 "_resolved_rdstage_current": ["Phase II"],
                 "new_includeinpipeline2021": [100000000],
                 "new_2024includeinpipeline": [100000001],
-                "new_includeinpipeline": [100000002],
+                "new_includeinpipeline2025": [100000002],
                 "vin_product": ["Drugs"],
             }
         )
@@ -438,7 +438,7 @@ class TestExpandTemporalRows:
                 "_resolved_rdstage_current": ["Phase II"],
                 "new_includeinpipeline2021": [100000000],
                 "new_2024includeinpipeline": [100000001],
-                "new_includeinpipeline": [100000002],
+                "new_includeinpipeline2025": [100000002],
                 "vin_product": ["Drugs"],
             }
         )
@@ -470,7 +470,7 @@ class TestExpandTemporalRows:
                 "new_2024currentrdstage": ["Phase I"],
                 "new_includeinpipeline2021": [100000000],
                 "new_2024includeinpipeline": [100000001],
-                "new_includeinpipeline": [100000002],
+                "new_includeinpipeline2025": [100000002],
                 "vin_product": ["Drugs"],
             }
         )
@@ -490,7 +490,7 @@ class TestExpandTemporalRows:
                 "vin_name": ["CandA"],
                 "_resolved_rdstage_current": ["Phase III"],
                 "vin_2019pcrpipelineinclusion": [100000000],
-                "new_includeinpipeline": [100000000],
+                "new_includeinpipeline2025": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -505,7 +505,7 @@ class TestExpandTemporalRows:
                 "vin_name": ["CandA"],
                 "_resolved_rdstage_current": ["Phase III"],
                 "new_2023includeinevgendatabase": [100000000],
-                "new_includeinpipeline": [100000000],
+                "new_includeinpipeline2025": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -521,7 +521,7 @@ class TestExpandTemporalRows:
                 "_resolved_rdstage_current": ["Phase III"],
                 "vin_2019pcrpipelineinclusion": [100000000],
                 "new_2023includeinevgendatabase": [100000001],
-                "new_includeinpipeline": [100000000],
+                "new_includeinpipeline2025": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -539,7 +539,7 @@ class TestExpandTemporalRows:
                 "new_includeinpipeline2021": [100000000],
                 "new_2023includeinevgendatabase": [100000001],
                 "new_2024includeinpipeline": [100000000],
-                "new_includeinpipeline": [100000001],
+                "new_includeinpipeline2025": [100000001],
                 "vin_product": ["Drugs"],
             }
         )
@@ -569,7 +569,7 @@ class TestExpandTemporalRows:
                 "_resolved_rdstage_current": ["Phase II"],
                 "new_includeinpipeline2021": [100000000],
                 "new_2024includeinpipeline": [None],
-                "new_includeinpipeline": [None],
+                "new_includeinpipeline2025": [None],
                 "vin_product": ["Drugs"],
             }
         )
@@ -589,7 +589,7 @@ class TestExpandTemporalRows:
                 "vin_name": ["CandA"],
                 "vin_2019stagepcr": ["Phase I"],
                 "_resolved_rdstage_current": ["Phase III"],
-                "new_includeinpipeline": [100000000],
+                "new_includeinpipeline2025": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -604,7 +604,7 @@ class TestExpandTemporalRows:
                 "vin_name": ["CandA"],
                 "vin_2019stagepcr": ["Phase I"],
                 "_resolved_rdstage_current": ["Phase III"],
-                "new_includeinpipeline": [100000000],
+                "new_includeinpipeline2025": [100000000],
                 "vin_product": ["Drugs"],
             }
         )
@@ -641,6 +641,80 @@ class TestExpandTemporalRows:
         assert result.loc[3, "new_currentrdstage"] == "Phase II"
         assert result.loc[4, "new_currentrdstage"] == "Phase III"
 
+    def test_rolling_pipeline_column_contributes_2026_boundary(self):
+        """`new_includeinpipeline` is Dataverse's rolling "current" column.
+        IGH froze 2025 into `new_includeinpipeline2025` and rolled the
+        unsuffixed column forward, so it now carries 2026."""
+        df = pd.DataFrame(
+            {
+                "vin_candidateid": ["cand-1"],
+                "vin_name": ["CandA"],
+                "new_includeinpipeline2025": [100000000],
+                "new_includeinpipeline": [100000001],
+                "vin_product": ["Drugs"],
+            }
+        )
+        result = (
+            _expand_temporal_rows(df).sort_values("valid_from").reset_index(drop=True)
+        )
+        assert list(result["valid_from"]) == ["2025-01-01", "2026-01-01"]
+        assert result.loc[0, "includeinpipeline"] == 100000000
+        assert result.loc[1, "includeinpipeline"] == 100000001
+
+    def test_candidate_created_in_2026_has_no_2025_boundary(self):
+        """Candidates Dataverse created during 2026 carry only a rolling
+        value and no frozen 2025 one. They must not be backdated into 2025 —
+        this is the defect that inflated the 2025 bucket by 244 rows."""
+        df = pd.DataFrame(
+            {
+                "vin_candidateid": ["cand-new"],
+                "vin_name": ["CandNew"],
+                "new_includeinpipeline2025": [None],
+                "new_includeinpipeline": [100000000],
+                "vin_product": ["Drugs"],
+            }
+        )
+        result = _expand_temporal_rows(df)
+        assert list(result["valid_from"]) == ["2026-01-01"]
+        assert pd.isna(result.loc[0, "valid_to"])
+
+    def test_rolling_stage_forward_fills_into_2026(self):
+        """R&D stage has no frozen 2025 archive, so the rolling stage sits at
+        the 2025 boundary and the cross-group forward-fill carries it into
+        2026 unchanged."""
+        df = pd.DataFrame(
+            {
+                "vin_candidateid": ["cand-1"],
+                "vin_name": ["CandA"],
+                "_resolved_rdstage_current": ["Phase II"],
+                "new_includeinpipeline2025": [100000000],
+                "new_includeinpipeline": [100000001],
+                "vin_product": ["Drugs"],
+            }
+        )
+        result = (
+            _expand_temporal_rows(df).sort_values("valid_from").reset_index(drop=True)
+        )
+        assert list(result["valid_from"]) == ["2025-01-01", "2026-01-01"]
+        assert result.loc[0, "new_currentrdstage"] == "Phase II"
+        assert result.loc[1, "new_currentrdstage"] == "Phase II"
+
+    def test_frozen_2025_pipeline_column_dropped_from_output(self):
+        """`new_includeinpipeline2025` is consumed by expansion and must not
+        leak into Silver alongside the derived `includeinpipeline` column."""
+        df = pd.DataFrame(
+            {
+                "vin_candidateid": ["cand-1"],
+                "vin_name": ["CandA"],
+                "new_includeinpipeline2025": [100000000],
+                "new_includeinpipeline": [100000001],
+                "vin_product": ["Drugs"],
+            }
+        )
+        result = _expand_temporal_rows(df)
+        assert "new_includeinpipeline2025" not in result.columns
+        assert "new_includeinpipeline" not in result.columns
+
 
 class TestTransformCandidates:
     """Tests for transform_candidates function."""
@@ -667,6 +741,7 @@ class TestTransformCandidates:
             "new_includeinpipeline2021": [100000000.0, 100000002.0, 100000001.0],
             "new_2023includeinevgendatabase": ["Yes", "No", "Pending"],
             "new_2024includeinpipeline": [862890000.0, None, None],
+            "new_includeinpipeline2025": [100000000.0, 100000002.0, 100000001.0],
             "new_includeinpipeline": [100000000.0, 100000002.0, 100000001.0],
             "_vin_captype_value": [
                 "c1746ad3-93d1-f011-bbd3-00224892cefa",
@@ -1110,7 +1185,7 @@ class TestTransformCandidates:
         """includeinpipeline_2025_raw is never dropped by drop_empty_columns
         even when every candidate's 2025 value is null (all-None override)."""
         df = self._make_input_df(
-            overrides={"new_includeinpipeline": [None, None, None]}
+            overrides={"new_includeinpipeline2025": [None, None, None]}
         )
         lookup = self._make_lookup_tables()
         result, _ = transform_candidates(df, lookup_tables=lookup)
@@ -1119,6 +1194,25 @@ class TestTransformCandidates:
         assert "includeinpipeline_2025_raw" in result.columns
         # Every value should be null (the source was all-None).
         assert result["includeinpipeline_2025_raw"].isna().all()
+
+    def test_includeinpipeline_2025_raw_reads_frozen_not_rolling(self):
+        """The strict flag must read the frozen 2025 archive. Reading the
+        rolling `new_includeinpipeline` would report 2026 inclusion as 2025
+        on the WHO Priority page. The two columns are given deliberately
+        opposite values so a regression cannot pass by coincidence."""
+        df = self._make_input_df(
+            overrides={
+                "new_includeinpipeline2025": [100000000.0, None, 100000001.0],
+                "new_includeinpipeline": [100000001.0, None, 100000000.0],
+            }
+        )
+        lookup = self._make_lookup_tables()
+        result, _ = transform_candidates(df, lookup_tables=lookup)
+
+        rows_a = result[result["candidateid"] == "id-1"]
+        assert (rows_a["includeinpipeline_2025_raw"] == 100000000.0).all()
+        rows_c = result[result["candidateid"] == "id-3"]
+        assert (rows_c["includeinpipeline_2025_raw"] == 100000001.0).all()
 
     def test_ctregistrylink_synthesis_applied(self):
         """CT registry link is cleaned during transform."""

@@ -26,6 +26,7 @@ _TEMPORAL_SOURCE_COLS = [
     "new_includeinpipeline2021",
     "new_2023includeinevgendatabase",
     "new_2024includeinpipeline",
+    "new_includeinpipeline2025",
     "new_includeinpipeline",
 ]
 
@@ -234,7 +235,11 @@ def _expand_temporal_rows(df: pd.DataFrame) -> pd.DataFrame:
         ("new_includeinpipeline2021", "2021-01-01"),
         ("new_2023includeinevgendatabase", "2023-01-01"),
         ("new_2024includeinpipeline", "2024-01-01"),
-        ("new_includeinpipeline", "2025-01-01"),
+        # 2025 was frozen into its own column when IGH closed the collection.
+        ("new_includeinpipeline2025", "2025-01-01"),
+        # The unsuffixed column is Dataverse's rolling "current" field and now
+        # carries 2026. It rolls forward again each year.
+        ("new_includeinpipeline", "2026-01-01"),
     ]
 
     def _year_map(row: pd.Series, configs: list[tuple[str, str]]) -> dict:
@@ -316,12 +321,12 @@ def transform_candidates(
     df = _normalize_pipeline_cols(df)
 
     # 1c. Capture the strict 2025 pipeline-inclusion value before temporal
-    # expansion consumes and drops `new_includeinpipeline`. The WHO
+    # expansion consumes and drops `new_includeinpipeline2025`. The WHO
     # Priority page needs the *actual* 2025 value (not the forward-filled
     # flag), so we preserve it candidate-grain under a stable name. Absent
     # column / NaN stays NaN; the gold CASE maps NaN and "No" to 0.
-    if "new_includeinpipeline" in df.columns:
-        df["includeinpipeline_2025_raw"] = df["new_includeinpipeline"]
+    if "new_includeinpipeline2025" in df.columns:
+        df["includeinpipeline_2025_raw"] = df["new_includeinpipeline2025"]
     else:
         df["includeinpipeline_2025_raw"] = None
 
