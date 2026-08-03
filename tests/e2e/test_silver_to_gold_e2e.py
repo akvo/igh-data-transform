@@ -324,8 +324,10 @@ class TestFactTables:
         Note this deliberately does NOT assert row-count parity between 2025
         and 2024. All 244 candidates created during 2026 carry a rolling R&D
         stage, and the stage series is pinned at 2025, so each contributes a
-        stage-only 2025 row. Those rows carry `include_in_pipeline` NULL and
-        are invisible to every portal query, all of which filter on it.
+        stage-only 2025 row. The raw `includeinpipeline` is NULL on those
+        rows, but the derivation maps NaN to 0, so those rows carry
+        `include_in_pipeline` 0 and are invisible to every portal query,
+        all of which filter on it.
         """
         counts = pd.read_sql_query(
             """

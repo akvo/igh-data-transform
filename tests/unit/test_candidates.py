@@ -662,9 +662,10 @@ class TestExpandTemporalRows:
         assert result.loc[1, "includeinpipeline"] == 100000001
 
     def test_candidate_created_in_2026_has_no_2025_boundary(self):
-        """Candidates Dataverse created during 2026 carry only a rolling
-        value and no frozen 2025 one. They must not be backdated into 2025 —
-        this is the defect that inflated the 2025 bucket by 244 rows."""
+        """When a candidate has no R&D stage value, the stage series
+        contributes no boundary, so only the rolling pipeline-inclusion
+        column does — yielding a 2026 boundary alone. The representative
+        case, a 2026 candidate WITH a stage, is covered by the next test."""
         df = pd.DataFrame(
             {
                 "vin_candidateid": ["cand-new"],
@@ -1195,12 +1196,12 @@ class TestTransformCandidates:
 
         assert "includeinpipeline_2025_raw" in result.columns
 
-        # Candidate A: bronze new_includeinpipeline == 100000000 (Yes)
+        # Candidate A: bronze new_includeinpipeline2025 == 100000000 (Yes)
         rows_a = result[result["candidateid"] == "id-1"]
         assert len(rows_a) > 1
         assert (rows_a["includeinpipeline_2025_raw"] == 100000000.0).all()
 
-        # Candidate C: bronze new_includeinpipeline == 100000001 (No) —
+        # Candidate C: bronze new_includeinpipeline2025 == 100000001 (No) —
         # carried verbatim, NOT coerced.
         rows_c = result[result["candidateid"] == "id-3"]
         assert (rows_c["includeinpipeline_2025_raw"] == 100000001.0).all()
