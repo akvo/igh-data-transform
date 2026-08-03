@@ -172,7 +172,7 @@ def _resolve_rdstage_fk(
     # Strip product suffix: 'Phase III - Drugs' -> 'Phase III'
     lookup = lookup.str.rsplit(" - ", n=1).str[0]
     df = df.copy()
-    df["_resolved_rdstage_2025"] = df["_vin_currentrndstage_value"].map(lookup)
+    df["_resolved_rdstage_current"] = df["_vin_currentrndstage_value"].map(lookup)
     return df
 
 
@@ -214,12 +214,19 @@ def _expand_temporal_rows(df: pd.DataFrame) -> pd.DataFrame:
     valid_to = start of candidate's next boundary (None for latest).
     Must be called before column renaming (uses original bronze names).
     """
+    # R&D stage has no frozen 2025 archive column — unlike 2019/2021/2023/2024,
+    # IGH never froze one. `_resolved_rdstage_current` is Dataverse's rolling
+    # "current stage" field, so it sits at the 2025 boundary and the forward-fill
+    # in `_forward_fill` carries it into 2026. One rolling field therefore yields
+    # the same stage in both years, which is the honest reading of the source.
+    # If IGH ever freezes a 2025 stage column, add it here and move the rolling
+    # column to "2026-01-01".
     _rdstage_cols = [
         ("vin_2019stagepcr", "2019-01-01"),
         ("new_rdstage2021", "2021-01-01"),
         ("new_2023currentrdstage", "2023-01-01"),
         ("new_2024currentrdstage", "2024-01-01"),
-        ("_resolved_rdstage_2025", "2025-01-01"),
+        ("_resolved_rdstage_current", "2025-01-01"),
     ]
 
     _pipeline_cols = [
@@ -249,7 +256,7 @@ def _expand_temporal_rows(df: pd.DataFrame) -> pd.DataFrame:
         return result
 
     rows_out: list[dict] = []
-    cols_to_drop = _TEMPORAL_SOURCE_COLS + ["_resolved_rdstage_2025"]
+    cols_to_drop = _TEMPORAL_SOURCE_COLS + ["_resolved_rdstage_current"]
     # Columns to carry through (everything except temporal source cols)
     keep_cols = [c for c in df.columns if c not in cols_to_drop]
 

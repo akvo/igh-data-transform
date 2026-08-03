@@ -29,8 +29,8 @@ class TestResolveRdstageFk:
             }
         )
         result = _resolve_rdstage_fk(df, rdstageproducts)
-        assert result["_resolved_rdstage_2025"].iloc[0] == "Phase III"
-        assert result["_resolved_rdstage_2025"].iloc[1] == "Phase I"
+        assert result["_resolved_rdstage_current"].iloc[0] == "Phase III"
+        assert result["_resolved_rdstage_current"].iloc[1] == "Phase I"
 
     def test_unknown_guid_resolves_to_nan(self):
         """Unknown GUID produces NaN in resolved column."""
@@ -47,7 +47,7 @@ class TestResolveRdstageFk:
             }
         )
         result = _resolve_rdstage_fk(df, rdstageproducts)
-        assert pd.isna(result["_resolved_rdstage_2025"].iloc[0])
+        assert pd.isna(result["_resolved_rdstage_current"].iloc[0])
 
     def test_compound_name_preserves_prefix(self):
         """'Deactivated - Phase IV - Drugs' -> 'Deactivated - Phase IV'."""
@@ -64,7 +64,7 @@ class TestResolveRdstageFk:
             }
         )
         result = _resolve_rdstage_fk(df, rdstageproducts)
-        assert result["_resolved_rdstage_2025"].iloc[0] == "Deactivated - Phase IV"
+        assert result["_resolved_rdstage_current"].iloc[0] == "Deactivated - Phase IV"
 
     def test_does_not_modify_original(self):
         """Original DataFrame is not modified."""
@@ -167,7 +167,7 @@ class TestExpandTemporalRows:
     """Tests for _expand_temporal_rows function.
 
     These tests operate on DataFrames after FK resolution, so 2025 data
-    appears in the _resolved_rdstage_2025 column (not vin_currentrdstage).
+    appears in the _resolved_rdstage_current column (not vin_currentrdstage).
     The cross-product expansion also handles includeinpipeline columns.
     """
 
@@ -179,7 +179,7 @@ class TestExpandTemporalRows:
                 "vin_name": ["CandA"],
                 "new_2023currentrdstage": ["Phase I"],
                 "new_2024currentrdstage": ["Phase II"],
-                "_resolved_rdstage_2025": ["Phase III"],
+                "_resolved_rdstage_current": ["Phase III"],
                 "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
             }
@@ -200,7 +200,7 @@ class TestExpandTemporalRows:
                 "vin_name": ["CandA"],
                 "new_2023currentrdstage": [None],
                 "new_2024currentrdstage": ["Phase II"],
-                "_resolved_rdstage_2025": ["Phase III"],
+                "_resolved_rdstage_current": ["Phase III"],
                 "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
             }
@@ -216,7 +216,7 @@ class TestExpandTemporalRows:
                 "vin_name": ["CandA"],
                 "new_2023currentrdstage": [None],
                 "new_2024currentrdstage": [None],
-                "_resolved_rdstage_2025": ["Phase III"],
+                "_resolved_rdstage_current": ["Phase III"],
                 "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
             }
@@ -232,7 +232,7 @@ class TestExpandTemporalRows:
                 "vin_name": ["CandA"],
                 "new_2023currentrdstage": ["Discovery"],
                 "new_2024currentrdstage": ["Preclinical"],
-                "_resolved_rdstage_2025": ["Phase I"],
+                "_resolved_rdstage_current": ["Phase I"],
                 "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
             }
@@ -253,7 +253,7 @@ class TestExpandTemporalRows:
                 "vin_name": ["CandA"],
                 "new_2023currentrdstage": ["Phase I"],
                 "new_2024currentrdstage": ["Phase II"],
-                "_resolved_rdstage_2025": ["Phase III"],
+                "_resolved_rdstage_current": ["Phase III"],
                 "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
             }
@@ -280,7 +280,7 @@ class TestExpandTemporalRows:
                 "new_rdstage2021": ["Discovery"],
                 "new_2023currentrdstage": [None],
                 "new_2024currentrdstage": ["Phase I"],
-                "_resolved_rdstage_2025": [None],
+                "_resolved_rdstage_current": [None],
                 "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
             }
@@ -304,7 +304,7 @@ class TestExpandTemporalRows:
                 "vin_name": ["CandA"],
                 "new_2023currentrdstage": [None],
                 "new_2024currentrdstage": [None],
-                "_resolved_rdstage_2025": ["Phase III"],
+                "_resolved_rdstage_current": ["Phase III"],
                 "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
             }
@@ -321,7 +321,7 @@ class TestExpandTemporalRows:
                 "vin_name": ["CandA"],
                 "new_2023currentrdstage": ["Phase I"],
                 "new_2024currentrdstage": ["Phase II"],
-                "_resolved_rdstage_2025": ["Phase III"],
+                "_resolved_rdstage_current": ["Phase III"],
                 "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
             }
@@ -331,7 +331,7 @@ class TestExpandTemporalRows:
             "vin_2019stagepcr",
             "new_2023currentrdstage",
             "new_2024currentrdstage",
-            "_resolved_rdstage_2025",
+            "_resolved_rdstage_current",
             "new_rdstage2021",
             "new_includeinpipeline",
             "new_2024includeinpipeline",
@@ -347,7 +347,7 @@ class TestExpandTemporalRows:
                 "vin_name": ["CandA"],
                 "new_2023currentrdstage": ["Phase I"],
                 "new_2024currentrdstage": [None],
-                "_resolved_rdstage_2025": ["Phase III"],
+                "_resolved_rdstage_current": ["Phase III"],
                 "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
             }
@@ -364,7 +364,7 @@ class TestExpandTemporalRows:
                 "vin_name": ["CandA", "CandB"],
                 "new_2023currentrdstage": ["Phase I", "Discovery"],
                 "new_2024currentrdstage": ["Phase II", None],
-                "_resolved_rdstage_2025": [None, "Preclinical"],
+                "_resolved_rdstage_current": [None, "Preclinical"],
                 "new_includeinpipeline": [100000000, 100000002],
                 "vin_product": ["Drugs", "Vaccines"],
             }
@@ -385,7 +385,7 @@ class TestExpandTemporalRows:
                 "vin_name": ["CandA", "CandB"],
                 "new_2023currentrdstage": ["Phase I", "Discovery"],
                 "new_2024currentrdstage": ["Phase II", None],
-                "_resolved_rdstage_2025": [None, "Preclinical"],
+                "_resolved_rdstage_current": [None, "Preclinical"],
                 "new_includeinpipeline": [100000000, 100000002],
                 "vin_product": ["Drugs", "Vaccines"],
             }
@@ -408,7 +408,7 @@ class TestExpandTemporalRows:
                 "new_rdstage2021": [None],
                 "new_2023currentrdstage": ["Phase I"],
                 "new_2024currentrdstage": [None],
-                "_resolved_rdstage_2025": ["Phase II"],
+                "_resolved_rdstage_current": ["Phase II"],
                 "new_includeinpipeline2021": [100000000],
                 "new_2024includeinpipeline": [100000001],
                 "new_includeinpipeline": [100000002],
@@ -435,7 +435,7 @@ class TestExpandTemporalRows:
                 "new_rdstage2021": [None],
                 "new_2023currentrdstage": ["Phase I"],
                 "new_2024currentrdstage": [None],
-                "_resolved_rdstage_2025": ["Phase II"],
+                "_resolved_rdstage_current": ["Phase II"],
                 "new_includeinpipeline2021": [100000000],
                 "new_2024includeinpipeline": [100000001],
                 "new_includeinpipeline": [100000002],
@@ -488,7 +488,7 @@ class TestExpandTemporalRows:
             {
                 "vin_candidateid": ["cand-1"],
                 "vin_name": ["CandA"],
-                "_resolved_rdstage_2025": ["Phase III"],
+                "_resolved_rdstage_current": ["Phase III"],
                 "vin_2019pcrpipelineinclusion": [100000000],
                 "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
@@ -503,7 +503,7 @@ class TestExpandTemporalRows:
             {
                 "vin_candidateid": ["cand-1"],
                 "vin_name": ["CandA"],
-                "_resolved_rdstage_2025": ["Phase III"],
+                "_resolved_rdstage_current": ["Phase III"],
                 "new_2023includeinevgendatabase": [100000000],
                 "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
@@ -518,7 +518,7 @@ class TestExpandTemporalRows:
             {
                 "vin_candidateid": ["cand-1"],
                 "vin_name": ["CandA"],
-                "_resolved_rdstage_2025": ["Phase III"],
+                "_resolved_rdstage_current": ["Phase III"],
                 "vin_2019pcrpipelineinclusion": [100000000],
                 "new_2023includeinevgendatabase": [100000001],
                 "new_includeinpipeline": [100000000],
@@ -566,7 +566,7 @@ class TestExpandTemporalRows:
                 "vin_candidateid": ["cand-1"],
                 "vin_name": ["CandA"],
                 "new_2024currentrdstage": ["Phase I"],
-                "_resolved_rdstage_2025": ["Phase II"],
+                "_resolved_rdstage_current": ["Phase II"],
                 "new_includeinpipeline2021": [100000000],
                 "new_2024includeinpipeline": [None],
                 "new_includeinpipeline": [None],
@@ -588,7 +588,7 @@ class TestExpandTemporalRows:
                 "vin_candidateid": ["cand-1"],
                 "vin_name": ["CandA"],
                 "vin_2019stagepcr": ["Phase I"],
-                "_resolved_rdstage_2025": ["Phase III"],
+                "_resolved_rdstage_current": ["Phase III"],
                 "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
             }
@@ -603,7 +603,7 @@ class TestExpandTemporalRows:
                 "vin_candidateid": ["cand-1"],
                 "vin_name": ["CandA"],
                 "vin_2019stagepcr": ["Phase I"],
-                "_resolved_rdstage_2025": ["Phase III"],
+                "_resolved_rdstage_current": ["Phase III"],
                 "new_includeinpipeline": [100000000],
                 "vin_product": ["Drugs"],
             }
@@ -621,7 +621,7 @@ class TestExpandTemporalRows:
                 "new_rdstage2021": ["Preclinical"],
                 "new_2023currentrdstage": ["Phase I"],
                 "new_2024currentrdstage": ["Phase II"],
-                "_resolved_rdstage_2025": ["Phase III"],
+                "_resolved_rdstage_current": ["Phase III"],
                 "vin_product": ["Drugs"],
             }
         )
@@ -932,7 +932,7 @@ class TestTransformCandidates:
             "new_2023currentrdstage",
             "new_2024currentrdstage",
             "_vin_currentrndstage_value",
-            "_resolved_rdstage_2025",
+            "_resolved_rdstage_current",
             "new_rdstage2021",
             "vin_2019pcrpipelineinclusion",
             "new_includeinpipeline2021",
