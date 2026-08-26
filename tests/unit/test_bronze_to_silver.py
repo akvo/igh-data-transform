@@ -458,7 +458,7 @@ class TestRegistryDispatch:
         assert rows_2025["new_currentrdstage"].iloc[0] == "Phase III"
         # FK column should be dropped
         assert "_vin_currentrndstage_value" not in df.columns
-        assert "_resolved_rdstage_2025" not in df.columns
+        assert "_resolved_rdstage_current" not in df.columns
 
     def test_option_sets_loaded_and_passed_to_transformer(self, tmp_path: Path):
         """Option sets from Bronze are loaded and passed to transformers."""

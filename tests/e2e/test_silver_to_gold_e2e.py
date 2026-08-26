@@ -299,6 +299,51 @@ class TestFactTables:
         df = _read_table(gold_conn, "fact_pipeline_snapshot")
         assert df["candidate_key"].notna().any(), "candidate_key is all NULL"
 
+    def test_fact_pipeline_snapshot_includes_2026(self, gold_conn):
+        """The 2026 reporting year reaches Gold. Before the rolling
+        pipeline-inclusion column was given its own boundary, 2026 values
+        were folded into 2025."""
+        years = pd.read_sql_query(
+            """
+            SELECT DISTINCT dt.year
+            FROM fact_pipeline_snapshot f
+            JOIN dim_date dt ON dt.date_key = f.date_key
+            WHERE dt.year IS NOT NULL
+            ORDER BY dt.year
+            """,
+            gold_conn,
+        )["year"].tolist()
+        assert 2026 in years, f"2026 missing from Gold; got {years}"
+
+    def test_2025_and_2026_read_different_source_columns(self, gold_conn):
+        """2025 must read the frozen `new_includeinpipeline2025` archive and
+        2026 the rolling `new_includeinpipeline`. Identical included-counts
+        would mean the rolling column is still feeding both boundaries —
+        the exact defect this change fixes.
+
+        Note this deliberately does NOT assert row-count parity between 2025
+        and 2024. All 244 candidates created during 2026 carry a rolling R&D
+        stage, and the stage series is pinned at 2025, so each contributes a
+        stage-only 2025 row. The raw `includeinpipeline` is NULL on those
+        rows, but the derivation maps NaN to 0, so those rows carry
+        `include_in_pipeline` 0 and are invisible to every portal query,
+        all of which filter on it.
+        """
+        counts = pd.read_sql_query(
+            """
+            SELECT dt.year, COUNT(*) AS n
+            FROM fact_pipeline_snapshot f
+            JOIN dim_date dt ON dt.date_key = f.date_key
+            WHERE dt.year IN (2025, 2026) AND f.include_in_pipeline = 1
+            GROUP BY dt.year
+            """,
+            gold_conn,
+        ).set_index("year")["n"]
+        assert counts.loc[2025] != counts.loc[2026], (
+            f"2025 and 2026 both report {counts.loc[2025]} included candidates; "
+            "the two boundaries appear to be reading the same source column"
+        )
+
     # -- fact_clinical_trial_event --
 
     def test_clinical_trial_has_rows(self, gold_conn):
